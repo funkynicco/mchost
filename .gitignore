@@ -1,1 +1,13 @@
 # gitignore
+
+bin/
+obj/
+
+*.user
+*.suo
+
+/GitIgnored
+/configuration.xml
+/minecraft
+
+Web.config

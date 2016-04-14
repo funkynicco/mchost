@@ -1,0 +1,17 @@
+MCHost.Service can be placed anywhere in it's own directory,
+but it requires an environment variable that defines the location of the root "minecraft" folder that contains the mc packages and instances.
+
+Search "System" in start, go to "Advanced system settings" and on the Advanced tab, click on Environment Variables.
+Under User Variables, click on New...
+
+Variable name: MCHOST_MINECRAFT
+Value should be the direct (full) path to the "minecraft" folder, such as in my case:
+
+D:\Coding\Public Projects\MCHost\minecraft
+
+where the following subfolder paths would be valid:
+D:\Coding\Public Projects\MCHost\minecraft\packages
+D:\Coding\Public Projects\MCHost\minecraft\instances
+and so forth.
+
+The MCHost.Service will warn you in case this configuration is not properly setup.
