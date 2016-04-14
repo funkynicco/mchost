@@ -13,14 +13,25 @@ namespace MCHost.Framework.Network
         private Socket _listenSocket;
 
         private readonly List<TClient> _clients = new List<TClient>();
+        private readonly byte[] _buffer = new byte[65536];
 
-        public NetworkServer()
+        protected IEnumerable<TClient> Clients { get { return _clients; } }
+
+        protected NetworkServer()
         {
         }
 
         public void Dispose()
         {
-            Stop();
+            Dispose(true);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Stop();
+            }
         }
 
         protected abstract TClient AllocateClient(Socket socket);
@@ -59,7 +70,81 @@ namespace MCHost.Framework.Network
 
         public virtual void Process()
         {
+            if (_listenSocket != null)
+            {
+                bool poll;
+                Socket socket;
 
+                try { poll = _listenSocket.Poll(1, SelectMode.SelectRead); }
+                catch { poll = false; }
+
+                if (poll)
+                {
+                    try { socket = _listenSocket.Accept(); }
+                    catch { socket = null; }
+
+                    if (socket != null)
+                    {
+                        var client = AllocateClient(socket);
+                        _clients.Add(client);
+                        OnClientConnected(client);
+                    }
+                }
+
+                for (int i = 0; i < _clients.Count;)
+                {
+                    var client = _clients[i];
+
+                    int len = 0;
+                    if (!client.IsDisconnect) // len is 0 by default so it will be disconnected if IsDisconnect is true
+                    {
+                        try { poll = client.Socket.Poll(1, SelectMode.SelectRead); }
+                        catch { poll = false; client.Disconnect(); }
+
+                        if (!poll)
+                        {
+                            ++i;
+                            continue;
+                        }
+
+                        try
+                        {
+                            len = client.Socket.Receive(_buffer);
+                        }
+                        catch
+                        {
+                            len = 0;
+                        }
+                    }
+
+                    if (len > 0)
+                    {
+                        OnClientData(client, _buffer, 0, len);
+                    }
+                    else
+                    {
+                        OnClientDisconnected(client);
+
+                        client.Dispose();
+                        _clients.RemoveAt(i);
+                        continue;
+                    }
+
+                    ++i;
+                }
+            }
+        }
+
+        protected virtual void OnClientConnected(TClient client)
+        {
+        }
+
+        protected virtual void OnClientDisconnected(TClient client)
+        {
+        }
+
+        protected virtual void OnClientData(TClient client, byte[] buffer, int offset, int length)
+        {
         }
     }
 }

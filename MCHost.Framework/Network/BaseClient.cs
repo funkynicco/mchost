@@ -10,6 +10,10 @@ namespace MCHost.Framework.Network
     public abstract class BaseClient : IDisposable
     {
         private Socket _socket;
+        private bool _disconnect = false;
+
+        public Socket Socket { get { return _socket; } }
+        public bool IsDisconnect { get { return _disconnect; } }
 
         public BaseClient(Socket socket)
         {
@@ -31,6 +35,11 @@ namespace MCHost.Framework.Network
                     _socket = null;
                 }
             }
+        }
+
+        public void Disconnect()
+        {
+            _disconnect = true;
         }
     }
 }
