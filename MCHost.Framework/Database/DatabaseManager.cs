@@ -17,6 +17,15 @@ namespace MCHost.Framework
             _connectionString = connectionString;
         }
 
+        public void TestConnection()
+        {
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                connection.Close();
+            }
+        }
+
         protected QueryResult Query(string query)
         {
             var connection = new SqlConnection(_connectionString);

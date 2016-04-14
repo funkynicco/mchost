@@ -74,6 +74,9 @@
     <Compile Include="Database\Structures\Package.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="MVC\BaseController.cs" />
+    <Compile Include="Network\BaseClient.cs" />
+    <Compile Include="Network\NetworkClient.cs" />
+    <Compile Include="Network\NetworkServer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

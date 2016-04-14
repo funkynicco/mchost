@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml;
 
@@ -17,12 +18,21 @@ namespace MCHost
         /// <param name="key">The key of the configuration value.</param>
         /// <exception cref="KeyNotFoundException"></exception>
         string GetValue(string key);
+
+        /// <summary>
+        /// Determines if the given text contains word or sentence that is ignored.
+        /// </summary>
+        /// <param name="text">Text to scan</param>
+        bool ShouldIgnore(string text);
     }
 
     public class Configuration : IConfiguration
     {
         private readonly Dictionary<string, string> _values = new Dictionary<string, string>();
         private readonly object _lock = new object();
+
+        private readonly List<string> _ignoreSentences = new List<string>();
+        private readonly List<Regex> _ignoreRegex = new List<Regex>();
 
         private Configuration()
         {
@@ -42,6 +52,23 @@ namespace MCHost
             {
                 return _values[key.ToLower()];
             }
+        }
+
+        public bool ShouldIgnore(string text)
+        {
+            foreach (var sentences in _ignoreSentences)
+            {
+                if (text.Contains(sentences))
+                    return true;
+            }
+
+            foreach (var regex in _ignoreRegex)
+            {
+                if (regex.IsMatch(text))
+                    return true;
+            }
+
+            return false;
         }
 
         // static
@@ -78,15 +105,42 @@ namespace MCHost
                 configuration._values.Add(lowerKey, valueAttribute.Value);
             }
 
+            foreach (XmlNode node in doc.SelectSingleNode("Configuration/IgnoreMinecraftConsole").ChildNodes)
+            {
+                if (string.Compare(node.Name, "ignore", true) == 0)
+                {
+                    if (node.InnerText.Length > 0)
+                        configuration._ignoreSentences.Add(node.InnerText);
+                }
+                else if (string.Compare(node.Name, "regex", true) == 0)
+                {
+                    if (node.InnerText.Length > 0)
+                    {
+                        var caseSensitive = true;
+
+                        var caseAttribute = node.Attributes["Case"];
+                        if (caseAttribute != null &&
+                            string.Compare(caseAttribute.Value, "insensitive", true) == 0)
+                            caseSensitive = false;
+
+                        var regex = caseSensitive ? new Regex(node.InnerText) : new Regex(node.InnerText, RegexOptions.IgnoreCase);
+
+                        configuration._ignoreRegex.Add(regex);
+                    }
+                }
+                else if (node.NodeType != XmlNodeType.Comment)
+                    throw new InvalidConfigurationException("Unknown node in Configuration/IgnoreMinecraftConsole: " + node.OuterXml);
+            }
+
             return configuration;
         }
-    }
 
-    public class InvalidConfigurationException : Exception
-    {
-        public InvalidConfigurationException(string message) :
-            base(message)
+        public class InvalidConfigurationException : Exception
         {
+            public InvalidConfigurationException(string message) :
+                base(message)
+            {
+            }
         }
     }
 }
