@@ -1,4 +1,6 @@
 ﻿using MCHost.Framework;
+using MCHost.Service;
+using MCHost.Service.Minecraft;
 using MCHost.Service.Network;
 using System;
 using System.Collections.Generic;
@@ -49,7 +51,7 @@ namespace MCHost
             FailedToBindInterface
         }
 
-        static Result SubMain()
+        static Result SubMain(ILogger logger)
         {
             /*using (var stream = File.Open(@"D:\Coding\Public Projects\MCHost\server\server.zip", FileMode.Open, FileAccess.Read, FileShare.Read))
             using (var archive = new ZipArchive(stream))
@@ -58,9 +60,9 @@ namespace MCHost
             }*/
 
             var configuration = Configuration.Load("configuration.xml");
-            _database = Database.Create(configuration["ConnectionString"], ServiceType.InstanceService);
+            _database = Database.Create(logger, configuration["ConnectionString"], ServiceType.InstanceService);
 
-            Console.WriteLine("Testing database connection ...");
+            logger.Write(LogType.Notice, "Testing database connection ...");
 
             try
             {
@@ -69,25 +71,21 @@ namespace MCHost
             catch (Exception ex)
             {
                 _database = null;
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Failed to connect to database.");
-                Console.WriteLine($"({ex.GetType().Name}): {ex.Message}");
-                Console.ForegroundColor = ConsoleColor.Gray;
+                logger.Write(LogType.Error, "Failed to connect to database.");
+                logger.Write(LogType.Error, $"({ex.GetType().Name}): {ex.Message}");
                 return Result.DatabaseConnectionFailed;
             }
 
-            Console.WriteLine("DB OK");
+            logger.Write(LogType.Normal, "DB OK");
 
             var minecraftRoot = GetEnvironmentVariable("MCHOST_MINECRAFT");
             if (minecraftRoot == null ||
                 !Directory.Exists(minecraftRoot = Path.GetFullPath(minecraftRoot)))
             {
-                Console.ForegroundColor = ConsoleColor.Red;
                 if (minecraftRoot == null)
-                    Console.WriteLine("The MCHOST_MINECRAFT environment variable was not provided.");
+                    logger.Write(LogType.Error, "The MCHOST_MINECRAFT environment variable was not provided.");
                 else
-                    Console.WriteLine("The MCHOST_MINECRAFT path is not pointing to a valid directory.");
-                Console.ForegroundColor = ConsoleColor.Gray;
+                    logger.Write(LogType.Error, "The MCHOST_MINECRAFT path is not pointing to a valid directory.");
                 return Result.HostVariableNotFound;
             }
 
@@ -96,17 +94,15 @@ namespace MCHost
             var serviceBindingMatch = Regex.Match(configuration["ServiceBinding"], @"^([0-9.]+):(\d+)$", RegexOptions.IgnoreCase);
             if (!serviceBindingMatch.Success)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("The ServiceBinding is invalid in the configuration file. The format is ip:port");
-                Console.WriteLine("The IP 0.0.0.0 can be used to bind on all network interfaces.");
-                Console.ForegroundColor = ConsoleColor.Gray;
+                logger.Write(LogType.Error, "The ServiceBinding is invalid in the configuration file. The format is ip:port");
+                logger.Write(LogType.Error, "The IP 0.0.0.0 can be used to bind on all network interfaces.");
                 return Result.ServiceBindingInvalid;
             }
 
             var ip = serviceBindingMatch.Groups[1].Value;
             var port = int.Parse(serviceBindingMatch.Groups[2].Value);
 
-            using (var server = new Server())
+            using (var server = new Server(logger))
             {
                 try
                 {
@@ -114,26 +110,35 @@ namespace MCHost
                 }
                 catch (Exception ex)
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"Failed to bind on interface {ip}:{port}");
-                    Console.WriteLine($"({ex.GetType().Name}): {ex.Message}");
-                    Console.ForegroundColor = ConsoleColor.Gray;
+                    logger.Write(LogType.Error, $"Failed to bind on interface {ip}:{port}");
+                    logger.Write(LogType.Error, $"({ex.GetType().Name}): {ex.Message}");
                     return Result.FailedToBindInterface;
                 }
 
                 _database.AddLog("Started minecraft service host.", true);
 
-                while (true)
+                using (var instanceManager = new InstanceManager(logger))
                 {
-                    if (Console.KeyAvailable)
+                    var package = new Package()
                     {
-                        var key = Console.ReadKey(true);
-                        if (key.Key == ConsoleKey.Escape)
-                            break;
-                    }
+                        Name = "MCInstance",
+                        Description = "",
+                        Filename = @"packages\test.zip"
+                    };
+                    instanceManager.StartInstance(package);
 
-                    server.Process();
-                    Thread.Sleep(50);
+                    while (true)
+                    {
+                        if (Console.KeyAvailable)
+                        {
+                            var key = Console.ReadKey(true);
+                            if (key.Key == ConsoleKey.Escape)
+                                break;
+                        }
+
+                        server.Process();
+                        Thread.Sleep(50);
+                    }
                 }
 
                 _database.AddLog("Stopped minecraft service host.", true);
@@ -146,22 +151,22 @@ namespace MCHost
         {
             Console.Title = "MCHost Service";
 
+            var logger = new Logger();
+
             int result = 0;
 
 #if !DEBUG
             try
             {
 #endif // !DEBUG
-            result = (int)SubMain();
+                result = (int)SubMain(logger);
 #if !DEBUG
             }
             catch (Exception ex)
             {
                 if (_database != null)
                     _database.AddLog("MCHost service crashed with exception " + ex.GetType().Name + ": " + ex.Message);
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("MCHost service crashed with exception " + ex.GetType().Name + ": " + ex.Message);
-                Console.ForegroundColor = ConsoleColor.Gray;
+                logger.Write(LogType.Error, "MCHost service crashed with exception " + ex.GetType().Name + ": " + ex.Message);
                 result = -1;
             }
 #endif // DEBUG
@@ -169,7 +174,7 @@ namespace MCHost
 #if DEBUG
             if (result != 0)
             {
-                Console.WriteLine("### (Press any key to continue) Exit code: " + result);
+                logger.Write(LogType.Normal, "### (Press any key to continue) Exit code: " + result);
                 Console.ReadKey(true);
             }
 #endif // DEBUG

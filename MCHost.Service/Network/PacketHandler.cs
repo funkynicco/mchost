@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MCHost.Framework;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,9 +12,7 @@ namespace MCHost.Service.Network
         [Packet]
         void OnRequestInstances(ServerClient client, string content)
         {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"from client {client.Socket.RemoteEndPoint}: '{content}'");
-            Console.ForegroundColor = ConsoleColor.Gray;
+            _logger.Write(LogType.Success, $"from client {client.Socket.RemoteEndPoint}: '{content}'");
 
             client.Send($"echo '{content}'");
         }

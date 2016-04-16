@@ -15,14 +15,16 @@ namespace MCHost.Framework
         void AddLog(string text, bool logConsole);
         IEnumerable<Package> GetPackages();
     }
-    
+
     public class Database : DatabaseManager, IDatabase
     {
+        private readonly ILogger _logger;
         private readonly ServiceType _service;
 
-        private Database(string connectionString, ServiceType service) :
+        private Database(ILogger logger, string connectionString, ServiceType service) :
             base(connectionString)
         {
+            _logger = logger;
             _service = service;
         }
 
@@ -40,7 +42,8 @@ namespace MCHost.Framework
         public void AddLog(string text, bool logConsole)
         {
             AddLog(text);
-            Console.WriteLine(text);
+            if (logConsole)
+                _logger.Write(LogType.Normal, text);
         }
 
         public IEnumerable<Package> GetPackages()
@@ -60,9 +63,9 @@ namespace MCHost.Framework
 
         // static
 
-        public static IDatabase Create(string connectionString, ServiceType service)
+        public static IDatabase Create(ILogger logger, string connectionString, ServiceType service)
         {
-            return new Database(connectionString, service);
+            return new Database(logger, connectionString, service);
         }
     }
 

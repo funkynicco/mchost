@@ -1,4 +1,5 @@
-﻿using MCHost.Framework.Network;
+﻿using MCHost.Framework;
+using MCHost.Framework.Network;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -75,8 +76,12 @@ namespace MCHost.Service.Network
         protected readonly Encoding _encoding = Encoding.GetEncoding(1252);
         private readonly Dictionary<string, PacketMethod> _packetMethods = new Dictionary<string, PacketMethod>();
 
-        public Server()
+        private readonly ILogger _logger;
+
+        public Server(ILogger logger)
         {
+            _logger = logger;
+
             foreach (var method in GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
             {
                 var attribute = method.GetCustomAttribute<PacketAttribute>();

@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MCHost.Framework", "MCHost.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MCHost.Web", "MCHost.Web\MCHost.Web.csproj", "{F415C036-1FA5-4AD6-A557-28CC3859072B}"
 EndProject
+Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "MCHost.DB", "SQL\MCHost.DB\MCHost.DB.sqlproj", "{81CE6FD1-A4CC-4CA2-884E-70E44C460162}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,12 @@ Global
 		{F415C036-1FA5-4AD6-A557-28CC3859072B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F415C036-1FA5-4AD6-A557-28CC3859072B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F415C036-1FA5-4AD6-A557-28CC3859072B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{81CE6FD1-A4CC-4CA2-884E-70E44C460162}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{81CE6FD1-A4CC-4CA2-884E-70E44C460162}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{81CE6FD1-A4CC-4CA2-884E-70E44C460162}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{81CE6FD1-A4CC-4CA2-884E-70E44C460162}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{81CE6FD1-A4CC-4CA2-884E-70E44C460162}.Release|Any CPU.Build.0 = Release|Any CPU
+		{81CE6FD1-A4CC-4CA2-884E-70E44C460162}.Release|Any CPU.Deploy.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

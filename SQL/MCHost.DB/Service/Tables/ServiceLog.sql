@@ -1,0 +1,6 @@
+﻿CREATE TABLE [dbo].[ServiceLog]
+(
+	[Service] INT NOT NULL PRIMARY KEY, 
+    [Date] DATETIME NOT NULL DEFAULT (GETUTCDATE()), 
+    [Text] TEXT NOT NULL
+)
