@@ -53,12 +53,6 @@ namespace MCHost
 
         static Result SubMain(ILogger logger)
         {
-            /*using (var stream = File.Open(@"D:\Coding\Public Projects\MCHost\server\server.zip", FileMode.Open, FileAccess.Read, FileShare.Read))
-            using (var archive = new ZipArchive(stream))
-            {
-                //int a = 0;
-            }*/
-
             var configuration = Configuration.Load("configuration.xml");
             _database = Database.Create(logger, configuration["ConnectionString"], ServiceType.InstanceService);
 
@@ -102,8 +96,11 @@ namespace MCHost
             var ip = serviceBindingMatch.Groups[1].Value;
             var port = int.Parse(serviceBindingMatch.Groups[2].Value);
 
-            using (var server = new Server(logger))
+            using (var server = new Server(logger, _database))
+            using (var instanceManager = new InstanceManager(logger, server))
             {
+                server.SetInstanceManager(instanceManager);
+
                 try
                 {
                     server.Start(new IPEndPoint[] { new IPEndPoint(IPAddress.Parse(ip), port) });
@@ -117,28 +114,40 @@ namespace MCHost
 
                 _database.AddLog("Started minecraft service host.", true);
 
-                using (var instanceManager = new InstanceManager(logger))
-                {
-                    var package = new Package()
-                    {
-                        Name = "MCInstance",
-                        Description = "",
-                        Filename = @"packages\test.zip"
-                    };
-                    instanceManager.StartInstance(package);
+                var nextInstanceProcess = DateTime.UtcNow.AddSeconds(1);
 
-                    while (true)
+                while (true)
+                {
+                    var now = DateTime.UtcNow;
+
+                    if (Console.KeyAvailable)
                     {
-                        if (Console.KeyAvailable)
+                        var key = Console.ReadKey(true);
+
+                        if (key.Key == ConsoleKey.F1)
                         {
-                            var key = Console.ReadKey(true);
-                            if (key.Key == ConsoleKey.Escape)
-                                break;
+                            var package = new Package()
+                            {
+                                Name = "MCInstance",
+                                Description = "",
+                                Filename = @"packages\test.zip"
+                            };
+                            instanceManager.CreateInstance(package, true);
                         }
 
-                        server.Process();
-                        Thread.Sleep(50);
+                        if (key.Key == ConsoleKey.Escape)
+                            break;
                     }
+
+                    server.Process();
+
+                    if (now >= nextInstanceProcess)
+                    {
+                        instanceManager.RemoveDeadInstances();
+                        nextInstanceProcess = now.AddSeconds(1);
+                    }
+
+                    Thread.Sleep(50);
                 }
 
                 _database.AddLog("Stopped minecraft service host.", true);
@@ -159,7 +168,7 @@ namespace MCHost
             try
             {
 #endif // !DEBUG
-                result = (int)SubMain(logger);
+            result = (int)SubMain(logger);
 #if !DEBUG
             }
             catch (Exception ex)

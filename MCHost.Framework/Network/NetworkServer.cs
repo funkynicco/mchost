@@ -17,6 +17,8 @@ namespace MCHost.Framework.Network
 
         protected IEnumerable<TClient> Clients { get { return _clients; } }
 
+        private readonly object _lock = new object();
+
         protected NetworkServer()
         {
         }
@@ -68,6 +70,37 @@ namespace MCHost.Framework.Network
             }
         }
 
+        public virtual void Broadcast(byte[] buffer, int offset, int length)
+        {
+            lock (_lock)
+            {
+                foreach (var client in _clients)
+                {
+                    if (!client.IsDisconnect)
+                    {
+                        var pos = 0;
+                        while (pos < length)
+                        {
+                            try
+                            {
+                                var sent = client.Socket.Send(buffer, offset, length, SocketFlags.None);
+                                if (sent <= 0)
+                                    throw new Exception("Sent 0 or less bytes.");
+
+                                pos += sent;
+
+                            }
+                            catch
+                            {
+                                client.Disconnect();
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         public virtual void Process()
         {
             if (_listenSocket != null)
@@ -85,52 +118,58 @@ namespace MCHost.Framework.Network
 
                     if (socket != null)
                     {
-                        var client = AllocateClient(socket);
-                        _clients.Add(client);
-                        OnClientConnected(client);
+                        lock (_lock)
+                        {
+                            var client = AllocateClient(socket);
+                            _clients.Add(client);
+                            OnClientConnected(client);
+                        }
                     }
                 }
 
-                for (int i = 0; i < _clients.Count;)
+                lock (_lock)
                 {
-                    var client = _clients[i];
-
-                    int len = 0;
-                    if (!client.IsDisconnect) // len is 0 by default so it will be disconnected if IsDisconnect is true
+                    for (int i = 0; i < _clients.Count;)
                     {
-                        try { poll = client.Socket.Poll(1, SelectMode.SelectRead); }
-                        catch { poll = false; client.Disconnect(); }
+                        var client = _clients[i];
 
-                        if (!poll)
+                        int len = 0;
+                        if (!client.IsDisconnect) // len is 0 by default so it will be disconnected if IsDisconnect is true
                         {
-                            ++i;
+                            try { poll = client.Socket.Poll(1, SelectMode.SelectRead); }
+                            catch { poll = false; client.Disconnect(); }
+
+                            if (!poll)
+                            {
+                                ++i;
+                                continue;
+                            }
+
+                            try
+                            {
+                                len = client.Socket.Receive(_buffer);
+                            }
+                            catch
+                            {
+                                len = 0;
+                            }
+                        }
+
+                        if (len > 0)
+                        {
+                            OnClientData(client, _buffer, 0, len);
+                        }
+                        else
+                        {
+                            OnClientDisconnected(client);
+
+                            _clients.RemoveAt(i);
+                            FreeClient(client);
                             continue;
                         }
 
-                        try
-                        {
-                            len = client.Socket.Receive(_buffer);
-                        }
-                        catch
-                        {
-                            len = 0;
-                        }
+                        ++i;
                     }
-
-                    if (len > 0)
-                    {
-                        OnClientData(client, _buffer, 0, len);
-                    }
-                    else
-                    {
-                        OnClientDisconnected(client);
-
-                        client.Dispose();
-                        _clients.RemoveAt(i);
-                        continue;
-                    }
-
-                    ++i;
                 }
             }
         }

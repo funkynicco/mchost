@@ -1,5 +1,6 @@
 ﻿using MCHost.Framework;
 using MCHost.Framework.Network;
+using MCHost.Service.Minecraft;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -49,7 +50,13 @@ namespace MCHost.Service.Network
         }
     }
 
-    public partial class Server : NetworkServer<ServerClient>
+    public interface IServer
+    {
+        void BroadcastInstanceStatus(string instanceId, InstanceStatus status);
+        void BroadcastInstanceLog(string instanceId, string text);
+    }
+
+    public partial class Server : NetworkServer<ServerClient>, IServer
     {
         enum PacketMethodParameters
         {
@@ -77,10 +84,13 @@ namespace MCHost.Service.Network
         private readonly Dictionary<string, PacketMethod> _packetMethods = new Dictionary<string, PacketMethod>();
 
         private readonly ILogger _logger;
+        private readonly IDatabase _database;
+        private IInstanceManager _instanceManager;
 
-        public Server(ILogger logger)
+        public Server(ILogger logger, IDatabase database)
         {
             _logger = logger;
+            _database = database;
 
             foreach (var method in GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
             {
@@ -90,6 +100,9 @@ namespace MCHost.Service.Network
                     var name = method.Name;
                     if (name.ToLower().StartsWith("on"))
                         name = name.Substring(2);
+
+                    if (attribute.IsHeaderSet)
+                        name = attribute.Header.ToLower();
 
                     if (_packetMethods.ContainsKey(name.ToLower()))
                         throw new InvalidProgramException($"Duplicate names of packet method '{method.Name}'. Overloading or casing is not supported.");
@@ -149,6 +162,11 @@ namespace MCHost.Service.Network
             base.Dispose(disposing);
         }
 
+        public void SetInstanceManager(IInstanceManager instanceManager)
+        {
+            _instanceManager = instanceManager;
+        }
+
         protected override ServerClient AllocateClient(Socket socket)
         {
             return new ServerClient(socket);
@@ -161,17 +179,17 @@ namespace MCHost.Service.Network
 
         protected override void OnClientConnected(ServerClient client)
         {
-            Console.WriteLine("Client connected: " + client.Socket.RemoteEndPoint);
+            //Console.WriteLine("Client connected: " + client.Socket.RemoteEndPoint);
         }
 
         protected override void OnClientDisconnected(ServerClient client)
         {
-            Console.WriteLine("Client disconnected: " + client.Socket.RemoteEndPoint);
+            //Console.WriteLine("Client disconnected: " + client.Socket.RemoteEndPoint);
         }
 
         protected override void OnClientData(ServerClient client, byte[] buffer, int offset, int length)
         {
-            Console.WriteLine($"[{client.Socket.RemoteEndPoint}] " + _encoding.GetString(buffer, 0, length));
+            //Console.WriteLine($"[{client.Socket.RemoteEndPoint}] " + _encoding.GetString(buffer, 0, length));
 
             for (var i = 0; i < length; ++i)
             {
@@ -254,6 +272,19 @@ namespace MCHost.Service.Network
     [AttributeUsage(AttributeTargets.Method)]
     public class PacketAttribute : Attribute
     {
+        public bool IsHeaderSet { get; private set; }
+        public string Header { get; private set; }
+
+        public PacketAttribute()
+        {
+            IsHeaderSet = false;
+        }
+
+        public PacketAttribute(string header)
+        {
+            IsHeaderSet = true;
+            Header = header;
+        }
     }
 
     public class PacketDataException : Exception
