@@ -82,6 +82,76 @@ namespace MCHost.Service.Minecraft
             }
         }
 
+        public string Serialize()
+        {
+            var serializer = new DataSerializer('|', ':');
+
+            serializer.Add(BindInterface);
+            serializer.Add(Motd);
+            serializer.Add(EnableCommandBlocks);
+            serializer.Add(MaxPlayers);
+            serializer.Add(AnnouncePlayerAchievements);
+
+            serializer.Add(JavaExecutable);
+            serializer.Add(JavaInitialMemoryMegabytes);
+            serializer.Add(JavaMaximumMemoryMegabytes);
+            serializer.Add(MinecraftJarFilename);
+
+            var sb = new StringBuilder();
+
+            foreach (var extraConfig in ExtraConfigurationValues)
+            {
+                if (sb.Length > 0)
+                    sb.Append(',');
+
+                sb.Append(extraConfig.Key.Replace("=", "<[#EQ]>").Replace(",", "<[#CO]>"));
+                sb.Append('=');
+                sb.Append(extraConfig.Value.Replace("=", "<[#EQ]>").Replace(",", "<[#CO]>"));
+            }
+
+            serializer.Add(sb.ToString());
+
+            return serializer.ToString();
+        }
+
+        // static
+
+        public static InstanceConfiguration Deserialize(string data)
+        {
+            var deserializer = new DataDeserializer(data);
+
+            var config = Default;
+
+            config.BindInterface = deserializer.GetString();
+            config.Motd = deserializer.GetString();
+            config.EnableCommandBlocks = deserializer.GetBoolean();
+            config.MaxPlayers = deserializer.GetInt32();
+            config.AnnouncePlayerAchievements = deserializer.GetBoolean();
+
+            config.JavaExecutable = deserializer.GetString();
+            config.JavaInitialMemoryMegabytes = deserializer.GetInt32();
+            config.JavaMaximumMemoryMegabytes = deserializer.GetInt32();
+            config.MinecraftJarFilename = deserializer.GetString();
+
+            var extraConfig = deserializer.GetString().Split(',');
+            if (extraConfig.Length > 0)
+            {
+                foreach (var ex in extraConfig)
+                {
+                    var exd = ex.Split('=');
+                    if (exd.Length == 2)
+                    {
+                        var key = exd[0].Replace("<[#EQ]>", "=").Replace("<[#CO]>", ",");
+                        var value = exd[1].Replace("<[#EQ]>", "=").Replace("<[#CO]>", ",");
+
+                        config.ExtraConfigurationValues[key] = value;
+                    }
+                }
+            }
+
+            return config;
+        }
+
         public static InstanceConfiguration Default
         {
             get
@@ -112,7 +182,7 @@ namespace MCHost.Service.Minecraft
         Exception Exception { get; }
         Package Package { get; }
 
-        InstanceConfiguration Configuration { get; }
+        InstanceConfiguration Configuration { get; set; }
 
         void Start();
         bool PostCommand(string command);
@@ -128,6 +198,7 @@ namespace MCHost.Service.Minecraft
         bool PostCommand(string instanceId, string command);
         bool PostShutdown(string instanceId);
         bool TerminateInstance(string instanceId);
+        InstanceConfiguration GetInstanceConfiguration(string instanceId);
     }
 
     public class InstanceManager : IDisposable, IInstanceManager
@@ -151,7 +222,7 @@ namespace MCHost.Service.Minecraft
             public Exception Exception { get; private set; }
             public Package Package { get { return _package; } }
 
-            public InstanceConfiguration Configuration { get; private set; }
+            public InstanceConfiguration Configuration { get; set; }
 
             private readonly AutoResetEvent _executeCommandEvent = new AutoResetEvent(false);
             private LinkedList<string> _commandQueue = new LinkedList<string>();
@@ -463,6 +534,20 @@ namespace MCHost.Service.Minecraft
                 _logger.Write(LogType.Notice, $"RemoveDeadInstances() - {instance.Id}");
                 instance.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Gets the instance configuration.
+        /// <para>* Do not edit any parameters as they may be accessed by another thread.</para>
+        /// </summary>
+        /// <param name="instanceId">Instance ID</param>
+        public InstanceConfiguration GetInstanceConfiguration(string instanceId)
+        {
+            IInstance instance;
+            if (!_instances.TryGetValue(instanceId, out instance))
+                return null;
+
+            return (instance as Instance).Configuration;
         }
     }
 }

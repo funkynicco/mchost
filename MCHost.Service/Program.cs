@@ -53,6 +53,8 @@ namespace MCHost
 
         static Result SubMain(ILogger logger)
         {
+            Console.WriteLine(InstanceConfiguration.Default.Serialize());
+
             var configuration = Configuration.Load("configuration.xml");
             _database = Database.Create(logger, configuration["ConnectionString"], ServiceType.InstanceService);
 

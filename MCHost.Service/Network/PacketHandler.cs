@@ -1,4 +1,5 @@
 ﻿using MCHost.Framework;
+using MCHost.Service.Minecraft;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -69,9 +70,15 @@ namespace MCHost.Service.Network
         [Packet("NEW")]
         void OnNewInstance(ServerClient client, string content)
         {
-            // params
+            var pos = content.IndexOf(':');
+            if (pos == -1)
+            {
+                _logger.Write(LogType.Warning, $"(Ignored) Client {client.Socket.RemoteEndPoint} sent invalid NEW packet: {content}");
+                return;
+            }
 
-            var packageName = Utilities.DecodeAsciiString(content);
+            var packageName = content.Substring(0, pos);
+            content = content.Substring(pos + 1).Trim();
 
             var package = _database.GetPackages().Where((a) => a.Name == packageName).FirstOrDefault();
             if (package == null)
@@ -80,8 +87,23 @@ namespace MCHost.Service.Network
                 return;
             }
 
+            InstanceConfiguration instanceConfiguration;
+
+            try
+            {
+                instanceConfiguration = InstanceConfiguration.Deserialize(content);
+                instanceConfiguration.Validate();
+            }
+            catch (Exception ex)
+            {
+                _logger.Write(LogType.Warning, $"(Ignored) Invalid configuration from {client.Socket.RemoteEndPoint}: {ex.Message}");
+                _logger.Write(LogType.Warning, $"[{client.Socket.RemoteEndPoint}] {content}");
+                client.Send("ERR Invalid configuration sent.|");
+                return;
+            }
+
             var instance = _instanceManager.CreateInstance(package);
-            instance.Configuration.Motd = "";
+            instance.Configuration = instanceConfiguration;
             client.Send($"NEW {instance.Id}:{package.Name.Replace(":", "&#58;").Replace("|", "&#124;")}|");
             instance.Start();
         }
@@ -96,7 +118,7 @@ namespace MCHost.Service.Network
                 _logger.Write(LogType.Warning, $"(Ignored) Client {client.Socket.RemoteEndPoint} sent invalid instance id in TRM packet: {content}");
                 return;
             }
-            
+
             if (_instanceManager.TerminateInstance(instanceId))
             {
                 _logger.Write(LogType.Warning, "(Failed) Instance not found or running in TRM packet: " + instanceId);
@@ -104,6 +126,22 @@ namespace MCHost.Service.Network
             }
             else
                 _logger.Write(LogType.Warning, $"Terminating instance {instanceId}");
+        }
+
+        [Packet("CFG")]
+        void OnGetInstanceConfiguration(ServerClient client, string content)
+        {
+            var instanceId = content;
+
+            var configuration = _instanceManager.GetInstanceConfiguration(instanceId);
+            if (configuration == null)
+            {
+                client.Send("ERR Instance not found.|");
+                return;
+            }
+
+            var instanceConfigurationData = configuration.Serialize();
+            client.Send($"CFG {instanceId}:{instanceConfigurationData}|");
         }
     }
 }

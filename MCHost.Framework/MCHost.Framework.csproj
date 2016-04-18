@@ -72,6 +72,7 @@
     <Compile Include="Database\Database.cs" />
     <Compile Include="Database\DatabaseManager.cs" />
     <Compile Include="Database\Structures\Package.cs" />
+    <Compile Include="DataSerializer.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="ILogger.cs" />
     <Compile Include="MVC\BaseController.cs" />
