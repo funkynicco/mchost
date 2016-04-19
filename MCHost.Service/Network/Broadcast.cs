@@ -1,4 +1,5 @@
-﻿using MCHost.Service.Minecraft;
+﻿using MCHost.Framework.Minecraft;
+using MCHost.Service.Minecraft;
 using System;
 using System.Collections.Generic;
 using System.Linq;

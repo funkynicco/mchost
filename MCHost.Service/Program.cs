@@ -1,4 +1,5 @@
 ﻿using MCHost.Framework;
+using MCHost.Framework.Minecraft;
 using MCHost.Service;
 using MCHost.Service.Minecraft;
 using MCHost.Service.Network;
@@ -98,8 +99,10 @@ namespace MCHost
             var ip = serviceBindingMatch.Groups[1].Value;
             var port = int.Parse(serviceBindingMatch.Groups[2].Value);
 
+            var maxConcurrentInstances = int.Parse(configuration["MaxConcurrentInstances"]);
+
             using (var server = new Server(logger, _database))
-            using (var instanceManager = new InstanceManager(logger, server))
+            using (var instanceManager = new InstanceManager(logger, server, maxConcurrentInstances))
             {
                 server.SetInstanceManager(instanceManager);
 
@@ -126,7 +129,7 @@ namespace MCHost
                     {
                         var key = Console.ReadKey(true);
 
-                        if (key.Key == ConsoleKey.F1)
+                        /*if (key.Key == ConsoleKey.F1)
                         {
                             var package = new Package()
                             {
@@ -135,7 +138,7 @@ namespace MCHost
                                 Filename = @"packages\test.zip"
                             };
                             instanceManager.CreateInstance(package, true);
-                        }
+                        }*/
 
                         if (key.Key == ConsoleKey.Escape)
                             break;

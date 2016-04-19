@@ -1,1 +1,1 @@
-﻿<%@ Application Codebehind="Global.asax.cs" Inherits="MCHostWeb.Global" Language="C#" %>
+﻿<%@ Application Codebehind="Global.asax.cs" Inherits="MCHost.Web.Global" Language="C#" %>

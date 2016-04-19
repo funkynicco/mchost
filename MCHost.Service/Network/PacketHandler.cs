@@ -1,4 +1,5 @@
 ﻿using MCHost.Framework;
+using MCHost.Framework.Minecraft;
 using MCHost.Service.Minecraft;
 using System;
 using System.Collections.Generic;
@@ -27,8 +28,6 @@ namespace MCHost.Service.Network
             }
 
             sb.Append('|');
-
-            //_logger.Write(LogType.Success, $"from client {client.Socket.RemoteEndPoint}: '{content}'");
 
             client.Send(sb.ToString());
         }
@@ -102,7 +101,19 @@ namespace MCHost.Service.Network
                 return;
             }
 
-            var instance = _instanceManager.CreateInstance(package);
+            IInstance instance;
+
+            try
+            {
+                instance = _instanceManager.CreateInstance(package);
+            }
+            catch (ConcurrentInstancesExceededException ex)
+            {
+                _logger.Write(LogType.Warning, $"({ex.GetType().Name}) {ex.Message}");
+                client.Send($"ERR {ex.Message}|");
+                return;
+            }
+
             instance.Configuration = instanceConfiguration;
             client.Send($"NEW {instance.Id}:{package.Name.Replace(":", "&#58;").Replace("|", "&#124;")}|");
             instance.Start();

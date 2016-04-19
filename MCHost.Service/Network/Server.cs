@@ -1,4 +1,5 @@
 ﻿using MCHost.Framework;
+using MCHost.Framework.Minecraft;
 using MCHost.Framework.Network;
 using MCHost.Service.Minecraft;
 using System;
@@ -14,11 +15,13 @@ namespace MCHost.Service.Network
     public class ServerClient : BaseClient
     {
         public StringBuilder Buffer { get; private set; }
+        public DateTime LastDataReceived { get; set; }
 
         public ServerClient(Socket socket) :
             base(socket)
         {
             Buffer = new StringBuilder(256);
+            LastDataReceived = DateTime.UtcNow;
         }
 
         protected override void Dispose(bool disposing)
@@ -86,6 +89,8 @@ namespace MCHost.Service.Network
         private readonly ILogger _logger;
         private readonly IDatabase _database;
         private IInstanceManager _instanceManager;
+
+        private DateTime _nextCheckLastData = DateTime.UtcNow.AddSeconds(1);
 
         public Server(ILogger logger, IDatabase database)
         {
@@ -179,17 +184,18 @@ namespace MCHost.Service.Network
 
         protected override void OnClientConnected(ServerClient client)
         {
-            //Console.WriteLine("Client connected: " + client.Socket.RemoteEndPoint);
+            _logger.Write(LogType.Notice, $"{client.Socket.RemoteEndPoint} connected");
         }
 
         protected override void OnClientDisconnected(ServerClient client)
         {
-            //Console.WriteLine("Client disconnected: " + client.Socket.RemoteEndPoint);
+            _logger.Write(LogType.Notice, $"{client.Socket.RemoteEndPoint} disconnected");
         }
 
         protected override void OnClientData(ServerClient client, byte[] buffer, int offset, int length)
         {
             //Console.WriteLine($"[{client.Socket.RemoteEndPoint}] " + _encoding.GetString(buffer, 0, length));
+            client.LastDataReceived = DateTime.UtcNow;
 
             for (var i = 0; i < length; ++i)
             {
@@ -239,6 +245,7 @@ namespace MCHost.Service.Network
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine($"Invalid header in packet from {client.Socket.RemoteEndPoint}: '{packet}'");
                 Console.ForegroundColor = ConsoleColor.Gray;
+                client.Disconnect();
                 return;
             }
 
@@ -266,6 +273,22 @@ namespace MCHost.Service.Network
         public override void Process()
         {
             base.Process();
+
+            var now = DateTime.UtcNow;
+            if (now >= _nextCheckLastData)
+            {
+                foreach (var client in Clients)
+                {
+                    if (!client.IsDisconnect &&
+                        (now - client.LastDataReceived).TotalMinutes >= 5)
+                    {
+                        _logger.Write(LogType.Warning, $"Client {client.Socket.RemoteEndPoint} kicked for inactivity (5 min)");
+                        client.Disconnect();
+                    }
+                }
+
+                _nextCheckLastData = now.AddSeconds(1);
+            }
         }
     }
 

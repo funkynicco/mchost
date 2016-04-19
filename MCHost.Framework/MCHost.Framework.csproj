@@ -75,6 +75,9 @@
     <Compile Include="DataSerializer.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="ILogger.cs" />
+    <Compile Include="Minecraft\InstanceConfiguration.cs" />
+    <Compile Include="Minecraft\InstanceInformation.cs" />
+    <Compile Include="Minecraft\InstanceStatus.cs" />
     <Compile Include="MVC\BaseController.cs" />
     <Compile Include="Network\BaseClient.cs" />
     <Compile Include="Network\NetworkClient.cs" />

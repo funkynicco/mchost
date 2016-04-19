@@ -3,6 +3,54 @@
     ViewBag.Title = "Index";
 }
 
-<h2>Index</h2>
+<h2>Service log</h2>
 
-hello
+<pre>@Model</pre>
+<a href="#" id="btn-new-instance" class="btn btn-primary">Start new instance</a>
+<a href="#" id="btn-list-instances" class="btn btn-primary">List instances</a>
+
+<table id="instance-table" class="table table-bordered table-striped">
+    <thead>
+        <tr>
+            <th>Instance</th>
+            <th>Package</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+    </tbody>
+</table>
+
+@section scripts
+{
+    <script type="text/javascript">
+        var lastLogId = 0;
+
+        $(function () {
+            setInterval(function () {
+                $.get('/home/get-log/' + lastLogId, function (data) {
+                    for (var i = 0; i < data.length; ++i) {
+                        if (data[i].Id > lastLogId)
+                            lastLogId = data[i].Id;
+
+                        var html = $('pre').html();
+                        if (html.length > 0)
+                            html += '\r\n';
+                        html += data[i].Text;
+
+                        $('pre').html(html);
+                    }
+                })
+            }, 1000);
+
+            $('#btn-new-instance').click(function () {
+                $.get('/home/start-instance');
+                return false;
+            })
+
+            $('#btn-list-instances').click(function () {
+                $.get('/home/list-instances');
+            })
+        })
+    </script>
+}
