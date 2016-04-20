@@ -10,7 +10,7 @@ namespace MCHost.Framework.Minecraft
     {
         Idle,
         Starting,
-        Started,
+        Running,
         Stopping,
         Stopped,
         Error

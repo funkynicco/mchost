@@ -3,11 +3,9 @@
     ViewBag.Title = "Index";
 }
 
-<h2>Service log</h2>
+<h2>Instance Manager</h2>
 
-<pre>@Model</pre>
 <a href="#" id="btn-new-instance" class="btn btn-primary">Start new instance</a>
-<a href="#" id="btn-list-instances" class="btn btn-primary">List instances</a>
 
 <table id="instance-table" class="table table-bordered table-striped">
     <thead>
@@ -15,16 +13,160 @@
             <th>Instance</th>
             <th>Package</th>
             <th>Status</th>
+            <th>Action</th>
         </tr>
     </thead>
-    <tbody>
-    </tbody>
+    <tbody></tbody>
 </table>
+
+<pre>@Model</pre>
+<input type="text" id="cmd" class="form-control" placeholder="Enter command here" />
+
+@section header
+{
+    <style type="text/css">
+        pre {
+            word-break: normal !important;
+            word-wrap: normal !important;
+            white-space: pre !important;
+            overflow: auto;
+            height: 300px;
+        }
+
+        #instance-table {
+            margin-top: 10px;
+        }
+
+        #cmd {
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .c-yellow {
+            color: #a08800;
+        }
+
+        .c-green {
+            color: #009b14;
+        }
+
+        .c-red {
+            color: #a90000;
+        }
+
+        .tiny-btn {
+            padding: 2px 5px 2px 5px;
+            border-radius: 3px;
+        }
+
+        .tiny-btn:hover {
+            text-decoration: none;
+        }
+    </style>
+}
 
 @section scripts
 {
     <script type="text/javascript">
         var lastLogId = 0;
+
+        function addConsoleLog(str) {
+            var html = $('pre').html();
+            if (html.length > 0)
+                html += '\r\n';
+            html += str;
+
+            $('pre').html(html);
+
+            $('pre').scrollTop($('pre').prop("scrollHeight"));
+        }
+
+        function getStatusClass(status) {
+            switch (status) {
+                case 1: return 'c-yellow';
+                case 2: return 'c-green';
+                case 3: return 'c-yellow';
+                case 5: return 'c-red';
+            }
+
+            return null;
+        }
+
+        function getStatusString(status) {
+            switch (status) {
+                case 0: return 'Idle';
+                case 1: return 'Starting';
+                case 2: return 'Running';
+                case 3: return 'Stopping';
+                case 4: return 'Stopped';
+                case 5: return 'Error';
+            }
+
+            return 'Unknown';
+        }
+
+        function buildStatusTag(status) {
+            var cssClass = getStatusClass(status);
+            if (cssClass)
+                return '<span class="' + cssClass + '">' + getStatusString(status) + '</span>';
+            else
+                return '<span>' + getStatusString(status) + '</span>';
+        }
+
+        function selectInstance(id) {
+            console.log('Select instance => ' + id);
+
+            return false;
+        }
+
+        function updateInstanceList() {
+            $.get('/home/list-instances', function (data) {
+                if (data.result) {
+                    console.log(data);
+                    if (data.instances.length > 0) {
+                        var html = '';
+
+                        for (var i = 0; i < data.instances.length; ++i) {
+                            var instance = data.instances[i];
+
+                            var buttonHtml =
+                                '<a href="#" class="tiny-btn btn-warning" onclick="return askShutdownInstance(\'' + instance.Id + '\')">Shutdown</a> ' +
+                                '<a href="#" class="tiny-btn btn-danger" onclick="return askTerminateInstance(\'' + instance.Id + '\')">Terminate</a>';
+
+                            html +=
+                                '<tr><td><a href="#" onclick="return selectInstance(\'' + instance.Id + '\')">' +
+                                instance.Id +
+                                '</a></td><td>' +
+                                instance.PackageName +
+                                '</td><td>' +
+                                buildStatusTag(instance.Status) +
+                                '</td><td>'+buttonHtml+'</td></tr>'
+                            ;
+                        }
+
+                        $('#instance-table tbody').html(html);
+                    } else {
+                        $('#instance-table tbody').html('<tr><td colspan="4">There are currently no instances running. <a href="#" onclick="return startNewInstance()">Start new instance</a></td></tr>');
+                    }
+                } else {
+                    alert('Error: ' + data.error);
+                }
+
+                setTimeout(updateInstanceList, 2000);
+            });
+        }
+
+        function startNewInstance() {
+            $.get('/home/start-instance', function (data) {
+                if (data.result) {
+                    console.log('Started new instance. Instance id: ' + data.instanceId);
+                } else {
+                    alert('Failed to start instance.\n' + data.error);
+                }
+            });
+
+            return false;
+        }
 
         $(function () {
             setInterval(function () {
@@ -33,24 +175,14 @@
                         if (data[i].Id > lastLogId)
                             lastLogId = data[i].Id;
 
-                        var html = $('pre').html();
-                        if (html.length > 0)
-                            html += '\r\n';
-                        html += data[i].Text;
-
-                        $('pre').html(html);
+                        addConsoleLog(data[i].Text);
                     }
                 })
             }, 1000);
 
-            $('#btn-new-instance').click(function () {
-                $.get('/home/start-instance');
-                return false;
-            })
+            $('#btn-new-instance').click(startNewInstance);
 
-            $('#btn-list-instances').click(function () {
-                $.get('/home/list-instances');
-            })
+            updateInstanceList();
         })
     </script>
 }

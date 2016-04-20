@@ -102,7 +102,7 @@ namespace MCHost.Service.Minecraft
             public bool PostCommand(string command)
             {
                 if (_status != InstanceStatus.Starting &&
-                    _status != InstanceStatus.Started)
+                    _status != InstanceStatus.Running)
                     return false;
 
                 lock (_commandLock)
@@ -117,7 +117,7 @@ namespace MCHost.Service.Minecraft
             public bool PostShutdown()
             {
                 if (_status != InstanceStatus.Starting &&
-                    _status != InstanceStatus.Started)
+                    _status != InstanceStatus.Running)
                     return false;
 
                 _shutdownEvent.Set();
@@ -127,7 +127,7 @@ namespace MCHost.Service.Minecraft
             public bool Terminate()
             {
                 if (_status != InstanceStatus.Starting &&
-                    _status != InstanceStatus.Started)
+                    _status != InstanceStatus.Running)
                     return false;
 
                 _terminateEvent.Set();
@@ -213,7 +213,7 @@ namespace MCHost.Service.Minecraft
                                   _server.BroadcastInstanceLog(_id, e.Data);
 
                                   if (e.Data.Contains(": Done"))
-                                      _server.BroadcastInstanceStatus(_id, _status = InstanceStatus.Started);
+                                      _server.BroadcastInstanceStatus(_id, _status = InstanceStatus.Running);
                               }
                           };
 

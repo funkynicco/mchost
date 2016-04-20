@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MCHost.Framework.Network;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -66,73 +67,53 @@ namespace MCHost.Framework.Minecraft
             }
         }
 
-        public string Serialize()
+        public void Serialize(IDataWriter stream)
         {
-            var serializer = new DataSerializer('|', ':');
+            stream.Write(BindInterface);
+            stream.Write(Motd);
+            stream.Write(EnableCommandBlocks);
+            stream.Write(MaxPlayers);
+            stream.Write(AnnouncePlayerAchievements);
 
-            serializer.Add(BindInterface);
-            serializer.Add(Motd);
-            serializer.Add(EnableCommandBlocks);
-            serializer.Add(MaxPlayers);
-            serializer.Add(AnnouncePlayerAchievements);
+            stream.Write(JavaExecutable);
+            stream.Write(JavaInitialMemoryMegabytes);
+            stream.Write(JavaMaximumMemoryMegabytes);
+            stream.Write(MinecraftJarFilename);
 
-            serializer.Add(JavaExecutable);
-            serializer.Add(JavaInitialMemoryMegabytes);
-            serializer.Add(JavaMaximumMemoryMegabytes);
-            serializer.Add(MinecraftJarFilename);
-
-            var sb = new StringBuilder();
-
+            stream.Write(ExtraConfigurationValues.Count);
             foreach (var extraConfig in ExtraConfigurationValues)
             {
-                if (sb.Length > 0)
-                    sb.Append(',');
-
-                sb.Append(extraConfig.Key.Replace("=", "<[#EQ]>").Replace(",", "<[#CO]>"));
-                sb.Append('=');
-                sb.Append(extraConfig.Value.Replace("=", "<[#EQ]>").Replace(",", "<[#CO]>"));
+                stream.Write(extraConfig.Key);
+                stream.Write(extraConfig.Value);
             }
-
-            serializer.Add(sb.ToString());
-
-            return serializer.ToString();
         }
 
         // static
 
-        public static InstanceConfiguration Deserialize(string data)
+        public static InstanceConfiguration Deserialize(IDataReader stream)
         {
-            var deserializer = new DataDeserializer(data);
-
             var config = Default;
 
-            config.BindInterface = deserializer.GetString();
-            config.Motd = deserializer.GetString();
-            config.EnableCommandBlocks = deserializer.GetBoolean();
-            config.MaxPlayers = deserializer.GetInt32();
-            config.AnnouncePlayerAchievements = deserializer.GetBoolean();
+            config.BindInterface = stream.ReadString();
+            config.Motd = stream.ReadString();
+            config.EnableCommandBlocks = stream.ReadBoolean();
+            config.MaxPlayers = stream.ReadInt32();
+            config.AnnouncePlayerAchievements = stream.ReadBoolean();
 
-            config.JavaExecutable = deserializer.GetString();
-            config.JavaInitialMemoryMegabytes = deserializer.GetInt32();
-            config.JavaMaximumMemoryMegabytes = deserializer.GetInt32();
-            config.MinecraftJarFilename = deserializer.GetString();
+            config.JavaExecutable = stream.ReadString();
+            config.JavaInitialMemoryMegabytes = stream.ReadInt32();
+            config.JavaMaximumMemoryMegabytes = stream.ReadInt32();
+            config.MinecraftJarFilename = stream.ReadString();
 
-            var extraConfig = deserializer.GetString().Split(',');
-            if (extraConfig.Length > 0)
+            var numberOfExtraConfig = stream.ReadInt32();
+            while (numberOfExtraConfig-- > 0)
             {
-                foreach (var ex in extraConfig)
-                {
-                    var exd = ex.Split('=');
-                    if (exd.Length == 2)
-                    {
-                        var key = exd[0].Replace("<[#EQ]>", "=").Replace("<[#CO]>", ",");
-                        var value = exd[1].Replace("<[#EQ]>", "=").Replace("<[#CO]>", ",");
+                var key = stream.ReadString();
+                var value = stream.ReadString();
 
-                        config.ExtraConfigurationValues[key] = value;
-                    }
-                }
+                config.ExtraConfigurationValues[key] = value;
             }
-
+            
             return config;
         }
 

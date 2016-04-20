@@ -17,12 +17,12 @@ namespace MCHost.Framework.Network
         private readonly ManualResetEvent _shutdownEvent = new ManualResetEvent(false);
 
         private EndPoint _endPoint;
+        private DateTime? _reconnectTime = null;
         private readonly object _lock = new object();
 
-        private readonly Encoding _encoding = Encoding.GetEncoding(1252);
-        private readonly StringBuilder _buffer = new StringBuilder();
+        private readonly DataBuffer _buffer = new DataBuffer();
 
-        private readonly StringBuilder _sendBuffer = new StringBuilder();
+        private readonly DataBuffer _sendBuffer = new DataBuffer();
         private readonly object _sendBufferLock = new object();
         private readonly AutoResetEvent _sendBufferEvent = new AutoResetEvent(false);
 
@@ -51,11 +51,24 @@ namespace MCHost.Framework.Network
             }
         }
 
-        public void Send(string text)
+        public void Send(Packet packet)
         {
             lock (_sendBufferLock)
             {
-                _sendBuffer.Append(text);
+                _sendBuffer.Offset = _sendBuffer.Length;
+                packet.WriteTo(_sendBuffer);
+                _sendBufferEvent.Set();
+            }
+        }
+
+        public void SendHeader(Header header, int requestId)
+        {
+            lock (_sendBufferLock)
+            {
+                _sendBuffer.Offset = _sendBuffer.Length;
+                _sendBuffer.Write((int)header);
+                _sendBuffer.Write(requestId);
+                _sendBuffer.Write(0); // packet size
                 _sendBufferEvent.Set();
             }
         }
@@ -66,9 +79,18 @@ namespace MCHost.Framework.Network
 
             while (true)
             {
-                int n = WaitHandle.WaitAny(events);
+                int n = WaitHandle.WaitAny(events, 100);
                 if (n == 1) // shutdown
                     break;
+
+                if (n == WaitHandle.WaitTimeout)
+                {
+                    var now = DateTime.UtcNow;
+                    if (_reconnectTime.HasValue &&
+                        now >= _reconnectTime.Value)
+                        _connectEvent.Set();
+                    continue;
+                }
 
                 try
                 {
@@ -89,7 +111,7 @@ namespace MCHost.Framework.Network
                         catch (Exception ex)
                         {
                             OnConnectionFailed(ex);
-                            throw new ExitClientLoopException();
+                            throw new ExitClientLoopException(TimeSpan.FromSeconds(30));
                         }
 
                         OnConnected();
@@ -111,8 +133,9 @@ namespace MCHost.Framework.Network
                                 byte[] dataToSend;
                                 lock (_sendBufferLock)
                                 {
-                                    dataToSend = _encoding.GetBytes(_sendBuffer.ToString());
-                                    _sendBuffer.Clear();
+                                    dataToSend = new byte[_sendBuffer.Length];
+                                    Buffer.BlockCopy(_sendBuffer.InternalBuffer, 0, dataToSend, 0, _sendBuffer.Length);
+                                    _sendBuffer.Reset();
                                 }
 
                                 int pos = 0;
@@ -139,7 +162,7 @@ namespace MCHost.Framework.Network
 
                             if (now >= nextSendPing)
                             {
-                                Send("|"); // basic ping
+                                SendHeader(Header.Ping, Packet.NoRequestId);
                                 nextSendPing = now.AddMinutes(2);
                             }
 
@@ -175,9 +198,14 @@ namespace MCHost.Framework.Network
                             {
                                 try
                                 {
-                                    ParseProtocolData(buffer, 0, len);
+                                    DecodeProtocolData(buffer, 0, len);
                                 }
-                                catch (ParseDataException ex)
+                                catch (ProtocolException ex)
+                                {
+                                    OnException(ex);
+                                    throw new ExitClientLoopException();
+                                }
+                                catch (EndOfBufferException ex)
                                 {
                                     OnException(ex);
                                     throw new ExitClientLoopException();
@@ -186,120 +214,97 @@ namespace MCHost.Framework.Network
                         }
                     }
                 }
-                catch (ExitClientLoopException)
+                catch (ExitClientLoopException ex)
                 {
+                    _reconnectTime = DateTime.UtcNow + ex.ReconnectTime;
                     // allows to safely exit out of any nested while loops, to reset the client
                 }
             }
         }
 
-        protected virtual void ParseProtocolData(byte[] buffer, int offset, int length)
+        protected virtual void DecodeProtocolData(byte[] buffer, int offset, int length)
         {
-            for (var i = 0; i < length; ++i)
+            _buffer.Offset = _buffer.Length;
+            _buffer.Write(buffer, offset, length);
+
+            while (_buffer.Length >= Packet.HeaderSize)
             {
-                if (buffer[offset + i] == '|')
-                {
-                    // combine previous data into below packet
-                    var packet = _buffer.ToString() + _encoding.GetString(buffer, offset, i);
-                    _buffer.Clear();
+                _buffer.Offset = 0;
+                var header = _buffer.ReadInt32();
+                var requestId = _buffer.ReadInt32();
+                var packetSize = _buffer.ReadInt32();
 
-                    if (packet.Length > 0)
-                        ParsePacket(packet);
+                if (_buffer.Length - _buffer.Offset < packetSize)
+                    return; // need more data
 
-                    if (i + 1 < length)
-                        ParseProtocolData(buffer, i + 1, length - (i + 1)); // recursive on the rest of the data (if any)
+                if (header <= 0 ||
+                    header >= (int)Header.MaxHeader)
+                    throw new ProtocolException($"The header is invalid: 0x{header.ToString("x8")}");
 
-                    return;
-                }
+                if (PreProcessPacket((Header)header, requestId, packetSize, _buffer))
+                    ProcessPacket((Header)header, requestId);
+
+                _buffer.Remove(Packet.HeaderSize + packetSize);
             }
-
-            _buffer.Append(_encoding.GetString(buffer, offset, length));
         }
 
-        protected virtual void ParsePacket(string packet)
+        protected virtual bool PreProcessPacket(Header header, int requestId, int packetSize, DataBuffer buffer)
         {
-            int pos;
-            string header = null;
-            string content = string.Empty;
+            return true;
+        }
 
-            if ((pos = packet.IndexOf(' ')) != -1)
+        protected virtual void ProcessPacket(Header header, int requestId)
+        {
+            if (header == Header.New) // new instance info
             {
-                header = packet.Substring(0, pos);
-                content = packet.Substring(pos + 1);
+                var instanceId = _buffer.ReadString();
+                var packageName = _buffer.ReadString();
+
+                OnNewInstance(requestId, instanceId, packageName);
             }
-            else
-                header = packet;
-
-            header = header.ToLower();
-
-            if (header == "new") // new instance info
+            else if (header == Header.InstanceStatus) // instance status
             {
-                var data = content.Split(':');
-                if (data.Length != 2)
-                    throw new ParseDataException("Invalid NEW packet from service.");
+                var instanceId = _buffer.ReadString();
+                var status = (InstanceStatus)_buffer.ReadInt32();
 
-                OnNewInstance(data[0], Utilities.DecodeAsciiString(data[1]));
+                OnInstanceStatus(requestId, instanceId, status);
             }
-            else if (header == "is") // instance status
+            else if (header == Header.InstanceLog) // instance log
             {
-                var data = content.Split(' ');
-                int instanceStatus;
-                if (data.Length != 2 ||
-                    !int.TryParse(data[1], out instanceStatus))
-                    throw new ParseDataException("Invalid IS packet from service.");
+                var instanceId = _buffer.ReadString();
+                var text = _buffer.ReadString();
 
-                OnInstanceStatus(data[0], (InstanceStatus)instanceStatus);
+                OnInstanceLog(requestId, instanceId, text);
             }
-            else if (header == "il") // instance log
+            else if (header == Header.InstanceConfiguration)
             {
-                if ((pos = content.IndexOf(' ')) == -1)
-                    throw new ParseDataException("Invalid IL packet from service.");
+                var instanceId = _buffer.ReadString();
+                var configuration = InstanceConfiguration.Deserialize(_buffer);
 
-                OnInstanceLog(
-                    content.Substring(0, pos),
-                    Utilities.DecodeAsciiString(content.Substring(pos + 1)));
+                OnInstanceConfiguration(requestId, instanceId, configuration);
             }
-            else if (header == "cfg")
+            else if (header == Header.List)
             {
-                if ((pos = content.IndexOf(':')) == -1)
-                    throw new ParseDataException("Invalid CFG packet from service.");
+                var numberOfInstances = _buffer.ReadInt32();
+                var instances = new List<InstanceInformation>(numberOfInstances);
 
-                var instanceId = content.Substring(0, pos);
-                InstanceConfiguration configuration;
-
-                try
+                while (numberOfInstances-- > 0)
                 {
-                    configuration = InstanceConfiguration.Deserialize(content.Substring(pos + 1));
-                }
-                catch
-                {
-                    throw new ParseDataException("Failed to deserialize instance configuration in CFG packet: " + content);
+                    var instanceId = _buffer.ReadString();
+                    var status = (InstanceStatus)_buffer.ReadInt32();
+                    var packageName = _buffer.ReadString();
+                    var configuration = InstanceConfiguration.Deserialize(_buffer);
+
+                    instances.Add(new InstanceInformation(instanceId, status, packageName, configuration));
                 }
 
-                OnInstanceConfiguration(instanceId, configuration);
+                OnInstanceList(requestId, instances);
             }
-            else if (header == "lst")
+            else if (header == Header.Error) // error message
             {
-                var instances = new List<InstanceInformation>();
+                var text = _buffer.ReadString();
 
-                var list = content.Split(new char[] { '$' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (var item in list)
-                {
-                    var data = item.Split(':');
-                    if (data.Length != 3)
-                        throw new ParseDataException("Invalid LST packet from service.");
-
-                    instances.Add(new InstanceInformation(
-                        data[0],
-                        (InstanceStatus)int.Parse(data[1]),
-                        Utilities.DecodeAsciiString(data[2])));
-                }
-
-                OnInstanceList(instances);
-            }
-            else if (header == "err") // error message
-            {
-                OnServiceError(Utilities.DecodeAsciiString(content));
+                OnServiceError(requestId, text);
             }
         }
 
@@ -326,35 +331,35 @@ namespace MCHost.Framework.Network
         #endregion
 
         #region Service events
-        protected virtual void OnNewInstance(string instanceId, string packageName)
+        protected virtual void OnNewInstance(int requestId, string instanceId, string packageName)
         {
         }
 
-        protected virtual void OnInstanceStatus(string instanceId, InstanceStatus status)
+        protected virtual void OnInstanceStatus(int requestId, string instanceId, InstanceStatus status)
         {
         }
 
-        protected virtual void OnInstanceLog(string instanceId, string text)
+        protected virtual void OnInstanceLog(int requestId, string instanceId, string text)
         {
         }
 
-        protected virtual void OnInstanceConfiguration(string instanceId, InstanceConfiguration configuration)
+        protected virtual void OnInstanceConfiguration(int requestId, string instanceId, InstanceConfiguration configuration)
         {
         }
 
-        protected virtual void OnInstanceList(IEnumerable<InstanceInformation> instances)
+        protected virtual void OnInstanceList(int requestId, IEnumerable<InstanceInformation> instances)
         {
         }
 
-        protected virtual void OnServiceError(string message)
+        protected virtual void OnServiceError(int requestId, string message)
         {
         }
         #endregion
     }
 
-    public class ParseDataException : Exception
+    public class ProtocolException : Exception
     {
-        public ParseDataException(string message) :
+        public ProtocolException(string message) :
             base(message)
         {
         }
@@ -362,5 +367,16 @@ namespace MCHost.Framework.Network
 
     public class ExitClientLoopException : Exception
     {
+        public TimeSpan ReconnectTime { get; private set; }
+
+        public ExitClientLoopException()
+        {
+            ReconnectTime = TimeSpan.FromSeconds(5);
+        }
+
+        public ExitClientLoopException(TimeSpan reconnectTime)
+        {
+            ReconnectTime = reconnectTime;
+        }
     }
 }

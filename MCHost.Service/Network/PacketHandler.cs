@@ -1,5 +1,6 @@
 ﻿using MCHost.Framework;
 using MCHost.Framework.Minecraft;
+using MCHost.Framework.Network;
 using MCHost.Service.Minecraft;
 using System;
 using System.Collections.Generic;
@@ -12,92 +13,71 @@ namespace MCHost.Service.Network
 {
     public partial class Server
     {
-        [Packet("LST")]
-        void OnListInstances(ServerClient client)
+        [Packet(Header.List)]
+        void OnListInstances(ServerClient client, int requestId)
         {
-            var sb = new StringBuilder(128);
-            sb.Append("LST ");
-            int n = 0;
+            var packet = new Packet(Header.List, requestId);
 
+            packet.Write(_instanceManager.Instances.Count());
             foreach (var instance in _instanceManager.Instances)
             {
-                if (n++ > 0)
-                    sb.Append('$');
-
-                sb.Append($"{instance.Id}:{(int)instance.Status}:{instance.Package.Name.Replace(":", "&#58;")}");
+                packet.Write(instance.Id);
+                packet.Write((int)instance.Status);
+                packet.Write(instance.Package.Name);
+                instance.Configuration.Serialize(packet);
             }
 
-            sb.Append('|');
-
-            client.Send(sb.ToString());
+            client.Send(packet);
         }
 
-        [Packet("CMD")]
-        void OnCommand(ServerClient client, string content)
+        [Packet(Header.Command)]
+        void OnCommand(ServerClient client, int requestId, DataBuffer buffer)
         {
-            var pos = content.IndexOf(':');
-            if (pos == -1)
-            {
-                _logger.Write(LogType.Warning, $"(Ignored) Client {client.Socket.RemoteEndPoint} sent invalid CMD packet: {content}");
-                return;
-            }
-
-            var instanceId = content.Substring(0, pos);
-            var command = content.Substring(pos + 1).Trim();
+            var instanceId = buffer.ReadString();
+            var command = buffer.ReadString();
 
             if (!Regex.IsMatch(instanceId, "^[a-f0-9]{16}$"))
             {
-                _logger.Write(LogType.Warning, $"(Ignored) Client {client.Socket.RemoteEndPoint} sent invalid instance id in CMD packet: {content}");
+                _logger.Write(LogType.Warning, $"(Ignored) Client {client.Socket.RemoteEndPoint} sent invalid instance id in CMD packet: {instanceId}");
                 return;
             }
 
             if (command.Length == 0)
             {
-                _logger.Write(LogType.Warning, $"(Ignored) Client {client.Socket.RemoteEndPoint} sent empty command in CMD packet: {content}");
+                _logger.Write(LogType.Warning, $"(Ignored) Client {client.Socket.RemoteEndPoint} sent empty command in CMD packet.");
                 return;
             }
 
             if (!_instanceManager.PostCommand(instanceId, command))
             {
                 _logger.Write(LogType.Warning, "(Failed) Instance not found or running in CMD packet: " + instanceId);
-                client.Send("ERR Instance not found.|");
+                client.SendError("Instance not found.", requestId);
             }
             else
                 _logger.Write(LogType.Notice, $"[{instanceId}]> {command}");
         }
 
-        [Packet("NEW")]
-        void OnNewInstance(ServerClient client, string content)
+        [Packet(Header.New)]
+        void OnNewInstance(ServerClient client, int requestId, DataBuffer buffer)
         {
-            var pos = content.IndexOf(':');
-            if (pos == -1)
-            {
-                _logger.Write(LogType.Warning, $"(Ignored) Client {client.Socket.RemoteEndPoint} sent invalid NEW packet: {content}");
-                return;
-            }
-
-            var packageName = content.Substring(0, pos);
-            content = content.Substring(pos + 1).Trim();
+            var packageName = buffer.ReadString();
+            var configuration = InstanceConfiguration.Deserialize(buffer);
 
             var package = _database.GetPackages().Where((a) => a.Name == packageName).FirstOrDefault();
             if (package == null)
             {
-                client.Send("ERR The package was not found.|");
+                client.SendError("The package was not found.", requestId);
                 return;
             }
 
-            InstanceConfiguration instanceConfiguration;
-
             try
             {
-                instanceConfiguration = InstanceConfiguration.Deserialize(content);
-                instanceConfiguration.Validate();
+                configuration.Validate();
             }
             catch (Exception ex)
             {
                 _logger.Write(LogType.Warning, $"(Ignored) Invalid configuration from {client.Socket.RemoteEndPoint}: {ex.Message}");
-                _logger.Write(LogType.Warning, $"[{client.Socket.RemoteEndPoint}] {content}");
-                client.Send("ERR Invalid configuration sent.|");
+                client.SendError("Invalid configuration sent.", requestId);
                 return;
             }
 
@@ -110,49 +90,56 @@ namespace MCHost.Service.Network
             catch (ConcurrentInstancesExceededException ex)
             {
                 _logger.Write(LogType.Warning, $"({ex.GetType().Name}) {ex.Message}");
-                client.Send($"ERR {ex.Message}|");
+                client.SendError(ex.Message, requestId);
                 return;
             }
 
-            instance.Configuration = instanceConfiguration;
-            client.Send($"NEW {instance.Id}:{package.Name.Replace(":", "&#58;").Replace("|", "&#124;")}|");
+            instance.Configuration = configuration;
+
+            var packet = new Packet(Header.New, requestId);
+            packet.Write(instance.Id);
+            packet.Write(package.Name);
+            client.Send(packet);
+
             instance.Start();
         }
 
-        [Packet("TRM")]
-        void OnTerminateInstance(ServerClient client, string content)
+        [Packet(Header.Terminate)]
+        void OnTerminateInstance(ServerClient client, int requestId, DataBuffer buffer)
         {
-            var instanceId = content;
+            var instanceId = buffer.ReadString();
 
             if (!Regex.IsMatch(instanceId, "^[a-f0-9]{16}$"))
             {
-                _logger.Write(LogType.Warning, $"(Ignored) Client {client.Socket.RemoteEndPoint} sent invalid instance id in TRM packet: {content}");
+                _logger.Write(LogType.Warning, $"(Ignored) Client {client.Socket.RemoteEndPoint} sent invalid instance id in TRM packet: {instanceId}");
                 return;
             }
 
             if (_instanceManager.TerminateInstance(instanceId))
             {
                 _logger.Write(LogType.Warning, "(Failed) Instance not found or running in TRM packet: " + instanceId);
-                client.Send("ERR Instance not found.|");
+                client.SendError("Instance not found.", requestId);
             }
             else
                 _logger.Write(LogType.Warning, $"Terminating instance {instanceId}");
         }
 
-        [Packet("CFG")]
-        void OnGetInstanceConfiguration(ServerClient client, string content)
+        [Packet(Header.InstanceConfiguration)]
+        void OnGetInstanceConfiguration(ServerClient client, int requestId, DataBuffer buffer)
         {
-            var instanceId = content;
+            var instanceId = buffer.ReadString();
 
             var configuration = _instanceManager.GetInstanceConfiguration(instanceId);
             if (configuration == null)
             {
-                client.Send("ERR Instance not found.|");
+                client.SendError("Instance not found.", requestId);
                 return;
             }
 
-            var instanceConfigurationData = configuration.Serialize();
-            client.Send($"CFG {instanceId}:{instanceConfigurationData}|");
+            var packet = new Packet(Header.InstanceConfiguration, requestId);
+            packet.Write(instanceId);
+            configuration.Serialize(packet);
+            client.Send(packet);
         }
     }
 }

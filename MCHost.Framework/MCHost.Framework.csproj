@@ -80,7 +80,9 @@
     <Compile Include="Minecraft\InstanceStatus.cs" />
     <Compile Include="MVC\BaseController.cs" />
     <Compile Include="Network\BaseClient.cs" />
+    <Compile Include="Network\DataBuffer.cs" />
     <Compile Include="Network\NetworkClient.cs" />
+    <Compile Include="Network\Packet.cs" />
     <Compile Include="Network\NetworkServer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utilities.cs" />

@@ -15,7 +15,18 @@ namespace MCHost.Web
         string Text { get; }
     }
 
-    public class HostClient : NetworkClient
+    public interface IRequestChain
+    {
+        int Id { get; }
+    }
+
+    public interface IRequestIdAllocator
+    {
+        int AllocateRequestId(IRequestChain requestChain);
+        void FreeRequestId(int requestId);
+    }
+
+    public class HostClient : NetworkClient, IRequestIdAllocator
     {
         class LogItem : ILogItem
         {
@@ -29,14 +40,70 @@ namespace MCHost.Web
             }
         }
 
+        class RequestChain : IDisposable, IRequestChain
+        {
+            public int Id { get; private set; }
+
+            private readonly IRequestIdAllocator _requestIdAllocator;
+            private readonly ManualResetEvent _completedEvent = new ManualResetEvent(false);
+            private readonly ManualResetEvent _cancelEvent = new ManualResetEvent(false);
+
+            public Header ResultHeader { get; set; }
+            public DataBuffer ResultBuffer { get; set; }
+
+            public RequestChain(IRequestIdAllocator requestIdAllocator)
+            {
+                _requestIdAllocator = requestIdAllocator;
+                Id = _requestIdAllocator.AllocateRequestId(this);
+            }
+
+            public void Dispose()
+            {
+                _requestIdAllocator.FreeRequestId(Id);
+                _completedEvent.Dispose();
+                _cancelEvent.Dispose();
+            }
+
+            /// <summary>
+            /// Waits for the request to finish.
+            /// </summary>
+            /// <param name="milliseconds">Amount of milliseconds to wait before timing out.</param>
+            /// <exception cref="RequestChainTimeoutException"></exception>
+            /// <exception cref="RequestChainCanceledException"></exception>
+            public void WaitForResult(int milliseconds)
+            {
+                var events = new WaitHandle[] { _completedEvent, _cancelEvent };
+
+                switch (WaitHandle.WaitAny(events, milliseconds))
+                {
+                    case 0: // completed
+                        break;
+                    case 1:
+                        throw new RequestChainCanceledException();
+                    case WaitHandle.WaitTimeout:
+                        throw new RequestChainTimeoutException();
+                }
+            }
+
+            public void Complete()
+            {
+                _completedEvent.Set();
+            }
+        }
+
+        class RequestChainTimeoutException : Exception { }
+        class RequestChainCanceledException : Exception { }
+
         private readonly List<LogItem> _log = new List<LogItem>();
         private long _nextLogId = 1;
         private readonly object _lock = new object();
 
-        private readonly object _dataResultLock = new object();
-        private readonly ManualResetEvent _dataResultEvent = new ManualResetEvent(false);
-        private string _dataResultHeaderSubscribe = null;
-        private object[] _dataResultParameters = null;
+        private readonly Queue<int> _requestIdQueue = new Queue<int>();
+        private int _nextRequestId = 1;
+        private readonly Dictionary<int, RequestChain> _requestChains = new Dictionary<int, RequestChain>();
+        private readonly object _requestChainLock = new object();
+
+        private readonly Dictionary<string, InstanceInformation> _runningInstances = new Dictionary<string, InstanceInformation>();
 
         private void Log(string str)
         {
@@ -66,12 +133,6 @@ namespace MCHost.Web
             return GetLog(0);
         }
 
-        protected override void ParsePacket(string packet)
-        {
-            //Log("[RAW] " + packet);
-            base.ParsePacket(packet);
-        }
-
         #region Network events
         protected override void OnConnecting()
         {
@@ -81,7 +142,6 @@ namespace MCHost.Web
         protected override void OnConnected()
         {
             Log("Connected to server.");
-            Send("LST|"); // get running instances
         }
 
         protected override void OnConnectionFailed(Exception ex)
@@ -101,54 +161,27 @@ namespace MCHost.Web
         #endregion
 
         #region Service events
-        protected override void OnNewInstance(string instanceId, string packageName)
+        protected override void OnNewInstance(int requestId, string instanceId, string packageName)
         {
             Log($"New instance of package '{packageName}' => {instanceId}");
-
-            lock (_dataResultLock)
-            {
-                if (_dataResultHeaderSubscribe == "new")
-                {
-                    _dataResultParameters = new object[] { instanceId, packageName };
-                    _dataResultEvent.Set();
-                }
-            }
         }
 
-        protected override void OnInstanceStatus(string instanceId, InstanceStatus status)
+        protected override void OnInstanceStatus(int requestId, string instanceId, InstanceStatus status)
         {
             Log($"[{instanceId}] Status changed to " + status.ToString());
-
-            lock (_dataResultLock)
-            {
-                if (_dataResultHeaderSubscribe == "is")
-                {
-                    _dataResultParameters = new object[] { instanceId, status };
-                    _dataResultEvent.Set();
-                }
-            }
         }
 
-        protected override void OnInstanceLog(string instanceId, string text)
+        protected override void OnInstanceLog(int requestId, string instanceId, string text)
         {
             Log($"[{instanceId}] {text}");
-
-            lock (_dataResultLock)
-            {
-                if (_dataResultHeaderSubscribe == "il")
-                {
-                    _dataResultParameters = new object[] { instanceId, text };
-                    _dataResultEvent.Set();
-                }
-            }
         }
 
-        protected override void OnInstanceConfiguration(string instanceId, InstanceConfiguration configuration)
+        protected override void OnInstanceConfiguration(int requestId, string instanceId, InstanceConfiguration configuration)
         {
-            Log($"[{instanceId}] Config: " + configuration.Serialize());
+            Log($"[{instanceId}] Received config.");
         }
 
-        protected override void OnInstanceList(IEnumerable<InstanceInformation> instances)
+        protected override void OnInstanceList(int requestId, IEnumerable<InstanceInformation> instances)
         {
             var sb = new StringBuilder();
 
@@ -162,22 +195,97 @@ namespace MCHost.Web
             Log(sb.ToString());
         }
 
-        protected override void OnServiceError(string message)
+        protected override void OnServiceError(int requestId, string message)
         {
             Log($"[SERVICE ERROR] {message}");
         }
         #endregion
 
-        public void CreateInstance()
+        protected override bool PreProcessPacket(Header header, int requestId, int packetSize, DataBuffer buffer)
         {
-            // create subscription to a packet response and send the request with the subscription id/key
-            // wait for result
-            // return the result data ...
+            lock (_requestChainLock)
+            {
+                RequestChain requestChain;
+                if (_requestChains.TryGetValue(requestId, out requestChain))
+                {
+                    var newBuffer = new DataBuffer();
+                    newBuffer.Write(buffer.InternalBuffer, buffer.Offset, packetSize);
+                    newBuffer.Offset = 0;
 
-            // var subscription = CreateSubscription("cfg");
-            // Send("cfg", "data of packet", subscription.Id);
-            // subscription.WaitForResult();
-            // return subscription.Result[0]; // instance id
+                    requestChain.ResultHeader = header;
+                    requestChain.ResultBuffer = newBuffer;
+                    requestChain.Complete();
+                    return false; // don't further process this packet since it was consumed by a request chain
+                }
+            }
+
+            return base.PreProcessPacket(header, requestId, packetSize, buffer);
+        }
+
+        public int AllocateRequestId(IRequestChain requestChain)
+        {
+            lock (_requestChainLock)
+            {
+                if (_requestIdQueue.Count == 0)
+                {
+                    for (int i = 0; i < 32; ++i)
+                        _requestIdQueue.Enqueue(_nextRequestId++);
+                }
+
+                var id = _requestIdQueue.Dequeue();
+                _requestChains.Add(id, (RequestChain)requestChain);
+                return id;
+            }
+        }
+
+        public void FreeRequestId(int requestId)
+        {
+            lock (_requestChainLock)
+            {
+                _requestChains.Remove(requestId);
+                _requestIdQueue.Enqueue(requestId);
+            }
+        }
+
+        public string CreateInstance(string packageName, InstanceConfiguration configuration)
+        {
+            using (var requestChain = new RequestChain(this))
+            {
+                var packet = new Packet(Header.New, requestChain.Id);
+                packet.Write(packageName);
+                configuration.Serialize(packet);
+                Send(packet);
+
+                requestChain.WaitForResult(5000);
+
+                return requestChain.ResultBuffer.ReadString(); // instanceId
+            }
+        }
+
+        public IEnumerable<InstanceInformation> GetInstances()
+        {
+            using (var requestChain = new RequestChain(this))
+            {
+                Send(new Packet(Header.List, requestChain.Id));
+
+                requestChain.WaitForResult(5000);
+
+                var list = new List<InstanceInformation>();
+
+                var buffer = requestChain.ResultBuffer;
+                var numberOfInstances = buffer.ReadInt32();
+                while (numberOfInstances-- > 0)
+                {
+                    var instanceId = buffer.ReadString();
+                    var status = (InstanceStatus)buffer.ReadInt32();
+                    var packageName = buffer.ReadString();
+                    var configuration = InstanceConfiguration.Deserialize(buffer);
+
+                    list.Add(new InstanceInformation(instanceId, status, packageName, configuration));
+                }
+
+                return list;
+            }
         }
     }
 }

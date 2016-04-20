@@ -54,8 +54,6 @@ namespace MCHost
 
         static Result SubMain(ILogger logger)
         {
-            Console.WriteLine(InstanceConfiguration.Default.Serialize());
-
             var configuration = Configuration.Load("configuration.xml");
             _database = Database.Create(logger, configuration["ConnectionString"], ServiceType.InstanceService);
 
@@ -173,14 +171,14 @@ namespace MCHost
             try
             {
 #endif // !DEBUG
-            result = (int)SubMain(logger);
+                result = (int)SubMain(logger);
 #if !DEBUG
             }
             catch (Exception ex)
             {
                 if (_database != null)
                     _database.AddLog("MCHost service crashed with exception " + ex.GetType().Name + ": " + ex.Message);
-                logger.Write(LogType.Error, "MCHost service crashed with exception " + ex.GetType().Name + ": " + ex.Message);
+                logger.Write(LogType.Error, "MCHost service crashed with exception " + ex.GetType().Name + ": " + ex.Message + "\r\n" + ex.StackTrace);
                 result = -1;
             }
 #endif // DEBUG

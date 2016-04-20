@@ -11,9 +11,11 @@ namespace MCHost.Web.Controllers
 {
     public class HomeController : BaseController
     {
+        private readonly HostClient _client = Global.HostClient;
+
         public ActionResult Index()
         {
-            return View();// (object)Global.HostClient.GetLog());
+            return View();
         }
 
         [ActionName("get-log")]
@@ -27,17 +29,35 @@ namespace MCHost.Web.Controllers
         {
             var configuration = InstanceConfiguration.Default;
 
-            Global.HostClient.Send($"NEW Test:{configuration.Serialize()}|");
-
-            return Json(new { result = true }, JsonRequestBehavior.AllowGet);
+            try
+            {
+                return Json(new
+                {
+                    result = true,
+                    instanceId = _client.CreateInstance("Test", configuration)
+                }, JsonRequestBehavior.AllowGet);
+            }
+            catch (Exception ex)
+            {
+                return Json(new { result = false, error = ex.Message }, JsonRequestBehavior.AllowGet);
+            }
         }
 
         [ActionName("list-instances")]
         public ActionResult ListInstances()
         {
-            Global.HostClient.Send("LST|");
-
-            return Json(new { result = true }, JsonRequestBehavior.AllowGet);
+            try
+            {
+                return Json(new
+                {
+                    result = true,
+                    instances = _client.GetInstances()
+                }, JsonRequestBehavior.AllowGet);
+            }
+            catch (Exception ex)
+            {
+                return Json(new { result = false, error = ex.Message }, JsonRequestBehavior.AllowGet);
+            }
         }
     }
 }

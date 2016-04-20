@@ -14,13 +14,13 @@ namespace MCHost.Service.Network
 {
     public class ServerClient : BaseClient
     {
-        public StringBuilder Buffer { get; private set; }
+        public DataBuffer Buffer { get; private set; }
         public DateTime LastDataReceived { get; set; }
 
         public ServerClient(Socket socket) :
             base(socket)
         {
-            Buffer = new StringBuilder(256);
+            Buffer = new DataBuffer();
             LastDataReceived = DateTime.UtcNow;
         }
 
@@ -34,15 +34,13 @@ namespace MCHost.Service.Network
             base.Dispose(disposing);
         }
 
-        public void Send(string text)
+        private void Send(byte[] buffer, int offset, int length)
         {
-            var data = Encoding.GetEncoding(1252).GetBytes(text);
-            var pos = 0;
             try
             {
-                while (pos < data.Length)
+                while (offset < length)
                 {
-                    pos += Socket.Send(data, pos, data.Length - pos, SocketFlags.None);
+                    offset += Socket.Send(buffer, offset, length - offset, SocketFlags.None);
                 }
             }
             catch
@@ -50,6 +48,26 @@ namespace MCHost.Service.Network
                 Disconnect();
                 throw;
             }
+        }
+
+        public void Send(Packet packet)
+        {
+            int length;
+            var buffer = packet.GetInternalBuffer(out length);
+
+            Send(buffer, 0, length);
+        }
+
+        public void Send(DataBuffer buffer)
+        {
+            Send(buffer.InternalBuffer, 0, buffer.Length);
+        }
+
+        public void SendError(string text, int requestId)
+        {
+            var packet = new Packet(Header.Error, requestId);
+            packet.Write(text);
+            Send(packet);
         }
     }
 
@@ -61,30 +79,59 @@ namespace MCHost.Service.Network
 
     public partial class Server : NetworkServer<ServerClient>, IServer
     {
-        enum PacketMethodParameters
+        enum PacketMethodParameter
         {
-            None = 0,
-            Client = 1,
-            Content = 2,
-            ClientAndContent = 3
+            Client,
+            RequestId,
+            Buffer
         }
 
         class PacketMethod
         {
-            public string Header { get; private set; }
+            public Header Header { get; private set; }
             public MethodInfo Method { get; private set; }
-            public PacketMethodParameters Parameters { get; private set; }
 
-            public PacketMethod(string header, MethodInfo method, PacketMethodParameters parameters)
+            private readonly List<PacketMethodParameter> _parameters = new List<PacketMethodParameter>();
+            public IEnumerable<PacketMethodParameter> Parameters { get { return _parameters; } }
+
+            private readonly object _invocationInstance;
+            private object[] _invocationParameters;
+
+            public PacketMethod(object invocationInstance, Header header, MethodInfo method)
             {
+                _invocationInstance = invocationInstance;
                 Header = header;
                 Method = method;
-                Parameters = parameters;
+            }
+
+            public void AddParameter(PacketMethodParameter parameter)
+            {
+                _parameters.Add(parameter);
+            }
+
+            public void UpdateParameters()
+            {
+                _invocationParameters = new object[_parameters.Count];
+            }
+
+            public object Invoke(ServerClient client, int requestId, DataBuffer buffer)
+            {
+                int i = 0;
+                foreach (var param in _parameters)
+                {
+                    switch (param)
+                    {
+                        case PacketMethodParameter.Client: _invocationParameters[i++] = client; break;
+                        case PacketMethodParameter.RequestId: _invocationParameters[i++] = requestId; break;
+                        case PacketMethodParameter.Buffer: _invocationParameters[i++] = buffer; break;
+                    }
+                }
+
+                return Method.Invoke(_invocationInstance, _invocationParameters);
             }
         }
 
-        protected readonly Encoding _encoding = Encoding.GetEncoding(1252);
-        private readonly Dictionary<string, PacketMethod> _packetMethods = new Dictionary<string, PacketMethod>();
+        private readonly Dictionary<Header, PacketMethod> _packetMethods = new Dictionary<Header, PacketMethod>();
 
         private readonly ILogger _logger;
         private readonly IDatabase _database;
@@ -102,58 +149,41 @@ namespace MCHost.Service.Network
                 var attribute = method.GetCustomAttribute<PacketAttribute>();
                 if (attribute != null)
                 {
-                    var name = method.Name;
-                    if (name.ToLower().StartsWith("on"))
-                        name = name.Substring(2);
+                    if (_packetMethods.ContainsKey(attribute.Header))
+                        throw new InvalidProgramException($"Duplicate headers of packet method '{method.Name}'. Overloading is not supported.");
 
-                    if (attribute.IsHeaderSet)
-                        name = attribute.Header.ToLower();
-
-                    if (_packetMethods.ContainsKey(name.ToLower()))
-                        throw new InvalidProgramException($"Duplicate names of packet method '{method.Name}'. Overloading or casing is not supported.");
-
-                    PacketMethodParameters parameterType;
+                    var packetMethod = new PacketMethod(this, attribute.Header, method);
 
                     var parameters = method.GetParameters();
-
-                    switch (parameters.Length)
+                    foreach (var parameter in parameters)
                     {
-                        case 0:
-                            parameterType = PacketMethodParameters.None;
-                            break;
-                        case 1:
-                            if (string.Compare(parameters[0].Name, "client", true) == 0)
-                            {
-                                parameterType = PacketMethodParameters.Client;
-                                if (parameters[0].ParameterType != typeof(ServerClient))
-                                    throw new InvalidProgramException($"Invalid dependency injection parameter type for method: {method.Name}");
-                            }
-                            else if (string.Compare(parameters[0].Name, "content", true) == 0)
-                            {
-                                parameterType = PacketMethodParameters.Content;
-                                if (parameters[0].ParameterType != typeof(string))
-                                    throw new InvalidProgramException($"Invalid dependency injection parameter type for method: {method.Name}");
-                            }
-                            else
-                                throw new InvalidProgramException($"Unknown dependency injection parameter {parameters[0].Name} in method {method.Name}");
-                            break;
-                        case 2:
-                            if (string.Compare(parameters[0].Name, "client", true) != 0 ||
-                                string.Compare(parameters[1].Name, "content", true) != 0)
-                                throw new InvalidProgramException($"The expected parameters for method '{method.Name}' are not provided or the order is wrong, it should be client and then content.");
-                            parameterType = PacketMethodParameters.ClientAndContent;
-
-                            if (parameters[0].ParameterType != typeof(ServerClient))
-                                throw new InvalidProgramException($"Invalid dependency injection parameter type for method: {method.Name}");
-                            if (parameters[1].ParameterType != typeof(string))
+                        if (string.Compare(parameter.Name, "client", true) == 0)
+                        {
+                            if (parameter.ParameterType != typeof(ServerClient))
                                 throw new InvalidProgramException($"Invalid dependency injection parameter type for method: {method.Name}");
 
-                            break;
-                        default:
-                            throw new InvalidProgramException($"Too many parameters expected in dependency injection for method: {method.Name}");
+                            packetMethod.AddParameter(PacketMethodParameter.Client);
+                        }
+                        else if (string.Compare(parameter.Name, "requestId", true) == 0)
+                        {
+                            if (parameter.ParameterType != typeof(int))
+                                throw new InvalidProgramException($"Invalid dependency injection parameter type for method: {method.Name}");
+
+                            packetMethod.AddParameter(PacketMethodParameter.RequestId);
+                        }
+                        else if (string.Compare(parameter.Name, "buffer", true) == 0)
+                        {
+                            if (parameter.ParameterType != typeof(DataBuffer))
+                                throw new InvalidProgramException($"Invalid dependency injection parameter type for method: {method.Name}");
+
+                            packetMethod.AddParameter(PacketMethodParameter.Buffer);
+                        }
+                        else
+                            throw new InvalidProgramException($"Invalid dependency parameter for method '{method.Name}': ({parameter.ParameterType.FullName}) {parameter.Name}");
                     }
 
-                    _packetMethods.Add(name.ToLower(), new PacketMethod(name, method, parameterType));
+                    packetMethod.UpdateParameters();
+                    _packetMethods.Add(attribute.Header, packetMethod);
                 }
             }
         }
@@ -194,80 +224,70 @@ namespace MCHost.Service.Network
 
         protected override void OnClientData(ServerClient client, byte[] buffer, int offset, int length)
         {
-            //Console.WriteLine($"[{client.Socket.RemoteEndPoint}] " + _encoding.GetString(buffer, 0, length));
             client.LastDataReceived = DateTime.UtcNow;
 
-            for (var i = 0; i < length; ++i)
+            try
             {
-                if (buffer[offset + i] == '|')
+                var buf = client.Buffer;
+
+                buf.Offset = buf.Length;
+                buf.Write(buffer, offset, length);
+
+                while (buf.Length >= Packet.HeaderSize)
                 {
-                    // combine previous data into below packet
-                    var packet = client.Buffer.ToString() + _encoding.GetString(buffer, offset, i);
-                    client.Buffer.Clear();
+                    buf.Offset = 0;
+                    var header = buf.ReadInt32();
+                    var requestId = buf.ReadInt32();
+                    var packetSize = buf.ReadInt32();
 
-                    if (packet.Length > 0)
-                        ParsePacket(client, packet);
+                    if (buf.Length - buf.Offset < packetSize)
+                        return; // need more data
 
-                    if (client.IsDisconnect)
+                    if (header <= 0 ||
+                        header >= (int)Header.MaxHeader)
+                    {
+                        _logger.Write(LogType.Warning, $"Invalid header 0x{header.ToString("x8")} from {client.Socket.RemoteEndPoint}");
+                        client.Disconnect();
                         return;
+                    }
 
-                    if (i + 1 < length)
-                        OnClientData(client, buffer, i + 1, length - (i + 1)); // recursive on the rest of the data (if any)
+                    ProcessPacket(client, (Header)header, requestId, buf);
 
-                    return;
+                    buf.Remove(Packet.HeaderSize + packetSize);
                 }
             }
-
-            client.Buffer.Append(_encoding.GetString(buffer, offset, length));
+            catch (EndOfBufferException)
+            {
+                _logger.Write(LogType.Warning, $"(EndOfBufferException) on {client.Socket.RemoteEndPoint}");
+                client.Disconnect();
+            }
         }
 
-        private void ParsePacket(ServerClient client, string packet)
+        private void ProcessPacket(ServerClient client, Header header, int requestId, DataBuffer buffer)
         {
-            Console.WriteLine($"[{client.Socket.RemoteEndPoint}] Packet: '{packet}'");
+            //Console.WriteLine($"[{client.Socket.RemoteEndPoint}] Header: {header}");
 
-            int pos;
-            string header = null;
-            string content = string.Empty;
-
-            if ((pos = packet.IndexOf(' ')) != -1)
-            {
-                header = packet.Substring(0, pos);
-                content = packet.Substring(pos + 1);
-            }
-            else
-                header = packet;
-
-            header = header.ToLower();
+            if (header == Header.Ping) // don't need to process any data for this packet
+                return;
 
             PacketMethod packetMethod;
             if (!_packetMethods.TryGetValue(header, out packetMethod))
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Invalid header in packet from {client.Socket.RemoteEndPoint}: '{packet}'");
+                Console.WriteLine($"Unhandled header in packet from {client.Socket.RemoteEndPoint}: '{header}'");
                 Console.ForegroundColor = ConsoleColor.Gray;
                 client.Disconnect();
                 return;
             }
 
-            object[] parameters;
-
-            switch (packetMethod.Parameters)
+            try
             {
-                case PacketMethodParameters.Client:
-                    parameters = new object[] { client };
-                    break;
-                case PacketMethodParameters.Content:
-                    parameters = new object[] { content };
-                    break;
-                case PacketMethodParameters.ClientAndContent:
-                    parameters = new object[] { client, content };
-                    break;
-                default:
-                    parameters = new object[] { };
-                    break;
+                packetMethod.Invoke(client, requestId, buffer);
             }
-
-            packetMethod.Method.Invoke(this, parameters);
+            catch (TargetInvocationException ex)
+            {
+                throw ex.InnerException;
+            }
         }
 
         public override void Process()
@@ -295,17 +315,10 @@ namespace MCHost.Service.Network
     [AttributeUsage(AttributeTargets.Method)]
     public class PacketAttribute : Attribute
     {
-        public bool IsHeaderSet { get; private set; }
-        public string Header { get; private set; }
+        public Header Header { get; private set; }
 
-        public PacketAttribute()
+        public PacketAttribute(Header header)
         {
-            IsHeaderSet = false;
-        }
-
-        public PacketAttribute(string header)
-        {
-            IsHeaderSet = true;
             Header = header;
         }
     }
