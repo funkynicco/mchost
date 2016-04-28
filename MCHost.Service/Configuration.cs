@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MCHost.Framework;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,7 +9,7 @@ using System.Xml;
 
 namespace MCHost
 {
-    public interface IConfiguration
+    public interface IConfiguration : ISettings
     {
         string this[string key] { get; }
 
@@ -26,13 +27,17 @@ namespace MCHost
         bool ShouldIgnore(string text);
     }
 
-    public class Configuration : IConfiguration
+    public class Configuration : IConfiguration, ISettings
     {
         private readonly Dictionary<string, string> _values = new Dictionary<string, string>();
         private readonly object _lock = new object();
 
         private readonly List<string> _ignoreSentences = new List<string>();
         private readonly List<Regex> _ignoreRegex = new List<Regex>();
+
+        public ServiceType ServiceType { get { return ServiceType.InstanceService; } }
+        public string ConnectionString { get { return this["ConnectionString"]; } }
+        public string LogDirectory { get { return this["LogDirectory"]; } }
 
         private Configuration()
         {

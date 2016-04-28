@@ -55,7 +55,7 @@ namespace MCHost
         static Result SubMain(ILogger logger)
         {
             var configuration = Configuration.Load("configuration.xml");
-            _database = Database.Create(logger, configuration["ConnectionString"], ServiceType.InstanceService);
+            _database = new Database(configuration);
 
             logger.Write(LogType.Notice, "Testing database connection ...");
 
@@ -115,7 +115,8 @@ namespace MCHost
                     return Result.FailedToBindInterface;
                 }
 
-                _database.AddLog("Started minecraft service host.", true);
+                _database.AddLog("Started minecraft service host.");
+                logger.Write(LogType.Notice, "Started minecraft service host.");
 
                 var nextInstanceProcess = DateTime.UtcNow.AddSeconds(1);
 
@@ -153,7 +154,8 @@ namespace MCHost
                     Thread.Sleep(50);
                 }
 
-                _database.AddLog("Stopped minecraft service host.", true);
+                _database.AddLog("Stopped minecraft service host.");
+                logger.Write(LogType.Notice, "Stopped minecraft service host.");
             }
 
             return 0;

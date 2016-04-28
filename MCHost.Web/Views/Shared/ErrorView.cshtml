@@ -1,0 +1,25 @@
+﻿
+@{
+    ViewBag.Title = "Error";
+    Layout = null;
+}
+@model string
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Error</title>
+    <link rel="stylesheet" href="~/assets/framework/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/assets/css/simplified.css" />
+</head>
+
+<body>
+    <div class="container">
+        <div class="error-view alert alert-danger">@Model</div>
+    </div>
+    <script src="~/assets/framework/js/jquery.js"></script>
+</body>
+</html>

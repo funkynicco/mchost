@@ -14,4 +14,18 @@
     <Property Name="ParentElementType" Value="SqlTable" />
     <Property Name="NewName" Value="Service" />
   </Operation>
+  <Operation Name="Rename Refactor" Key="ea778b56-de42-4cab-b652-cf656ccb2889" ChangeDateTime="04/25/2016 14:02:39">
+    <Property Name="ElementName" Value="[dbo].[SessionCache].[Id]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[SessionCache]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Key" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="c1a07e3c-39dd-4978-b3f1-425e1bece5bb" ChangeDateTime="04/25/2016 20:43:24">
+    <Property Name="ElementName" Value="[dbo].[UserLog].[Id]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[UserLog]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="UserId" />
+  </Operation>
 </Operations>

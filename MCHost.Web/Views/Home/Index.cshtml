@@ -67,6 +67,8 @@
 
 @section scripts
 {
+    <script src="~/assets/js/service.js"></script>
+
     <script type="text/javascript">
         var lastLogId = 0;
 
@@ -77,7 +79,6 @@
             html += str;
 
             $('pre').html(html);
-
             $('pre').scrollTop($('pre').prop("scrollHeight"));
         }
 
@@ -149,7 +150,7 @@
                         $('#instance-table tbody').html('<tr><td colspan="4">There are currently no instances running. <a href="#" onclick="return startNewInstance()">Start new instance</a></td></tr>');
                     }
                 } else {
-                    alert('Error: ' + data.error);
+                    console.log('Error: ' + data.error);
                 }
 
                 setTimeout(updateInstanceList, 2000);
@@ -161,7 +162,7 @@
                 if (data.result) {
                     console.log('Started new instance. Instance id: ' + data.instanceId);
                 } else {
-                    alert('Failed to start instance.\n' + data.error);
+                    console.log('Failed to start instance.\n' + data.error);
                 }
             });
 
@@ -169,6 +170,7 @@
         }
 
         $(function () {
+            /*
             setInterval(function () {
                 $.get('/home/get-log/' + lastLogId, function (data) {
                     for (var i = 0; i < data.length; ++i) {
@@ -183,6 +185,8 @@
             $('#btn-new-instance').click(startNewInstance);
 
             updateInstanceList();
+
+            Service.initiate();*/
         })
     </script>
 }

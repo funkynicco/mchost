@@ -48,6 +48,22 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.CSharp" />
+    <Reference Include="Microsoft.Practices.ServiceLocation, Version=1.3.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\CommonServiceLocator.1.3\lib\portable-net4+sl5+netcore45+wpa81+wp8\Microsoft.Practices.ServiceLocation.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Practices.Unity, Version=4.0.0.0, Culture=neutral, PublicKeyToken=6d32ff45e0ccc69f, processorArchitecture=MSIL">
+      <HintPath>..\packages\Unity.4.0.1\lib\net45\Microsoft.Practices.Unity.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Practices.Unity.Configuration, Version=4.0.0.0, Culture=neutral, PublicKeyToken=6d32ff45e0ccc69f, processorArchitecture=MSIL">
+      <HintPath>..\packages\Unity.4.0.1\lib\net45\Microsoft.Practices.Unity.Configuration.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Practices.Unity.RegistrationByConvention, Version=4.0.0.0, Culture=neutral, PublicKeyToken=6d32ff45e0ccc69f, processorArchitecture=MSIL">
+      <HintPath>..\packages\Unity.4.0.1\lib\net45\Microsoft.Practices.Unity.RegistrationByConvention.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Web.DynamicData" />
     <Reference Include="System.Web.Entity" />
@@ -102,28 +118,53 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Content\bootstrap.css" />
-    <Content Include="Content\bootstrap.min.css" />
-    <Content Include="Content\Site.css" />
-    <Content Include="fonts\glyphicons-halflings-regular.svg" />
+    <Content Include="assets\css\simplified.css" />
+    <Content Include="assets\css\theme.css" />
+    <Content Include="assets\framework\css\bootstrap-theme.css" />
+    <Content Include="assets\framework\css\bootstrap-theme.min.css" />
+    <Content Include="assets\framework\css\bootstrap.css" />
+    <Content Include="assets\framework\css\bootstrap.min.css" />
+    <Content Include="assets\framework\css\ie10-viewport-bug-workaround.css" />
+    <Content Include="assets\framework\fonts\glyphicons-halflings-regular.svg" />
+    <Content Include="assets\framework\js\bootstrap.js" />
+    <Content Include="assets\framework\js\bootstrap.min.js" />
+    <Content Include="assets\framework\js\docs.min.js" />
+    <Content Include="assets\framework\js\ie10-viewport-bug-workaround.js" />
+    <Content Include="assets\framework\js\jquery.js" />
+    <Content Include="assets\framework\js\npm.js" />
+    <Content Include="assets\img\exclamation21.png" />
+    <Content Include="assets\js\login.js" />
+    <Content Include="assets\js\main.js" />
     <Content Include="Global.asax" />
-    <Content Include="Scripts\bootstrap.js" />
-    <Content Include="Scripts\bootstrap.min.js" />
+    <Content Include="assets\js\service.js" />
+    <Content Include="assets\framework\css\bootstrap-theme.css.map" />
+    <Content Include="assets\framework\css\bootstrap-theme.min.css.map" />
+    <Content Include="assets\framework\css\bootstrap.css.map" />
+    <Content Include="assets\framework\css\bootstrap.min.css.map" />
+    <Content Include="assets\framework\fonts\glyphicons-halflings-regular.eot" />
+    <Content Include="assets\framework\fonts\glyphicons-halflings-regular.ttf" />
+    <Content Include="assets\framework\fonts\glyphicons-halflings-regular.woff" />
+    <Content Include="assets\framework\fonts\glyphicons-halflings-regular.woff2" />
     <None Include="Properties\PublishProfiles\Publish.pubxml" />
-    <None Include="Scripts\jquery-1.10.2.intellisense.js" />
-    <Content Include="Scripts\jquery-1.10.2.js" />
-    <Content Include="Scripts\jquery-1.10.2.min.js" />
-    <Content Include="Scripts\modernizr-2.6.2.js" />
     <Content Include="Web.config" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="App_Code\Logger.cs" />
+    <Compile Include="App_Code\MyDependencyResolver.cs" />
     <Compile Include="App_Code\HostClient.cs" />
+    <Compile Include="App_Code\WebSocketClientHandler.cs" />
+    <Compile Include="App_Code\WebSocketHandler.cs" />
+    <Compile Include="App_Start\DependencyInjection.cs" />
     <Compile Include="App_Start\RouteConfig.cs" />
     <Compile Include="App_Start\WebApiConfig.cs" />
+    <Compile Include="Controllers\AccountController.cs" />
+    <Compile Include="Controllers\Api\LoginController.cs" />
+    <Compile Include="Controllers\Api\TestController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
+    <Compile Include="Models\LoginModel.cs" />
     <Compile Include="Models\PlaceholderModel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -133,10 +174,9 @@
     <Content Include="Views\_ViewStart.cshtml" />
     <Content Include="Views\Shared\_Layout.cshtml" />
     <Content Include="Views\Home\Index.cshtml" />
-    <Content Include="fonts\glyphicons-halflings-regular.woff" />
-    <Content Include="fonts\glyphicons-halflings-regular.ttf" />
-    <Content Include="fonts\glyphicons-halflings-regular.eot" />
-    <Content Include="Scripts\jquery-1.10.2.min.map" />
+    <Content Include="Views\Home\Test.cshtml" />
+    <Content Include="Views\Shared\LoginLayout.cshtml" />
+    <Content Include="Views\Shared\ErrorView.cshtml" />
     <None Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>
     </None>
@@ -146,6 +186,9 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
+    <Folder Include="Views\Account\" />
+    <Folder Include="Views\Api\" />
+    <Folder Include="Views\Test\" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MCHost.Framework\MCHost.Framework.csproj">

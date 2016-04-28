@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MCHost.Framework.Security;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -11,22 +12,156 @@ namespace MCHost.Framework
     public interface IDatabase
     {
         void TestConnection();
+
+        #region Account
+        User Login(string email, string password_hash);
+        User GetUser(int userid);
+        User GetUser(string email);
+        IEnumerable<User> GetUsers();
+        #endregion
+
+        #region Cookies
+        void LoadUserCookieCache(ref Dictionary<string, UserCookieCacheItem> cookies);
+        void UpdateUserCookieExpireDate(string key, DateTime expireDate);
+        void AddUserCookie(string key, string ip, int userid, DateTime expireDate);
+        void DeleteUserCookie(string key);
+        void DeleteUserCookies(int userid);
+        #endregion
+
         void AddLog(string text);
-        void AddLog(string text, bool logConsole);
+        void AddUserLog(int userId, string text);
         IEnumerable<Package> GetPackages();
     }
 
     public class Database : DatabaseManager, IDatabase
     {
-        private readonly ILogger _logger;
         private readonly ServiceType _service;
 
-        private Database(ILogger logger, string connectionString, ServiceType service) :
-            base(connectionString)
+        public Database(ISettings settings) :
+            base(settings.ConnectionString)
         {
-            _logger = logger;
-            _service = service;
+            _service = settings.ServiceType;
         }
+
+        #region Account
+        public User Login(string email, string password_hash)
+        {
+            using (var query = Query("Login")
+                .CommandType(CommandType.StoredProcedure)
+                .AddParameter("email", SqlDbType.VarChar, email)
+                .AddParameter("passwordHash", SqlDbType.VarChar, password_hash)
+                .Execute())
+            {
+                if (query.Read())
+                    return User.FromResult(query);
+            }
+
+            return null;
+        }
+
+        public User GetUser(int userid)
+        {
+            using (var query = Query("GetUserById")
+                .CommandType(CommandType.StoredProcedure)
+                .AddParameter("id", SqlDbType.Int, userid)
+                .Execute())
+            {
+                if (query.Read())
+                    return User.FromResult(query);
+            }
+
+            return null;
+        }
+
+        public User GetUser(string email)
+        {
+            using (var query = Query("GetUserByEmail")
+                .CommandType(CommandType.StoredProcedure)
+                .AddParameter("email", SqlDbType.VarChar, email)
+                .Execute())
+            {
+                if (query.Read())
+                    return User.FromResult(query);
+            }
+
+            return null;
+        }
+
+        public IEnumerable<User> GetUsers()
+        {
+            var list = new List<User>();
+
+            using (var query = Query("GetUsers")
+                .CommandType(CommandType.StoredProcedure)
+                .Execute())
+            {
+                while (query.Read())
+                    list.Add(User.FromResult(query));
+            }
+
+            return list;
+        }
+        #endregion
+
+        #region Cookies
+        public void LoadUserCookieCache(ref Dictionary<string, UserCookieCacheItem> cookies)
+        {
+            using (var query = Query("LoadUserCookieCache")
+                .CommandType(CommandType.StoredProcedure)
+                .Execute())
+            {
+                while (query.Read())
+                {
+                    var item = UserCookieCacheItem.FromResult(query);
+                    cookies.Add(item.Key, item);
+                }
+            }
+        }
+
+        public void UpdateUserCookieExpireDate(string key, DateTime expireDate)
+        {
+            using (var query = Query("UpdateUserCookieExpireDate")
+                .CommandType(CommandType.StoredProcedure)
+                .AddParameter("expireDate", SqlDbType.DateTime, expireDate)
+                .AddParameter("key", SqlDbType.VarChar, key))
+            {
+                query.ExecuteNonQuery();
+            }
+        }
+
+        public void AddUserCookie(string key, string ip, int userid, DateTime expireDate)
+        {
+            using (var query = Query("AddUserCookie")
+                .CommandType(CommandType.StoredProcedure)
+                .AddParameter("key", SqlDbType.VarChar, key)
+                .AddParameter("ip", SqlDbType.VarChar, ip)
+                .AddParameter("userid", SqlDbType.Int, userid)
+                .AddParameter("expireDate", SqlDbType.DateTime, expireDate))
+            {
+                query.ExecuteNonQuery();
+            }
+        }
+
+        public void DeleteUserCookie(string key)
+        {
+            using (var query = Query("DeleteUserCookie")
+                .CommandType(CommandType.StoredProcedure)
+                .AddParameter("key", SqlDbType.VarChar, key))
+            {
+                query.ExecuteNonQuery();
+            }
+        }
+
+        public void DeleteUserCookies(int userid)
+        {
+            using (var query = Query("DeleteUserCookies")
+                .CommandType(CommandType.StoredProcedure)
+                .AddParameter("userid", SqlDbType.Int, userid))
+            {
+                query.ExecuteNonQuery();
+            }
+        }
+        #endregion
 
         public void AddLog(string text)
         {
@@ -39,11 +174,15 @@ namespace MCHost.Framework
             }
         }
 
-        public void AddLog(string text, bool logConsole)
+        public void AddUserLog(int userId, string message)
         {
-            AddLog(text);
-            if (logConsole)
-                _logger.Write(LogType.Normal, text);
+            using (var query = Query("AddUserLog")
+                .CommandType(CommandType.StoredProcedure)
+                .AddParameter("userId", SqlDbType.Int, userId)
+                .AddParameter("message", SqlDbType.Text, message))
+            {
+                query.ExecuteNonQuery();
+            }
         }
 
         public IEnumerable<Package> GetPackages()
@@ -59,13 +198,6 @@ namespace MCHost.Framework
             }
 
             return list;
-        }
-
-        // static
-
-        public static IDatabase Create(ILogger logger, string connectionString, ServiceType service)
-        {
-            return new Database(logger, connectionString, service);
         }
     }
 

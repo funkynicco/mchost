@@ -1,7 +1,11 @@
-﻿using System;
+﻿using MCHost.Framework;
+using System;
 using System.Collections.Generic;
+using System.Configuration;
+using System.IO;
 using System.Linq;
 using System.Web.Http;
+using System.Web.Http.Dependencies;
 
 namespace MCHost.Web
 {
@@ -9,8 +13,6 @@ namespace MCHost.Web
     {
         public static void Register(HttpConfiguration config)
         {
-            // Web API configuration and services
-
             // Web API routes
             config.MapHttpAttributeRoutes();
 

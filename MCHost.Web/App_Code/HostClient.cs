@@ -26,7 +26,15 @@ namespace MCHost.Web
         void FreeRequestId(int requestId);
     }
 
-    public class HostClient : NetworkClient, IRequestIdAllocator
+    public interface IHostClient
+    {
+        IEnumerable<ILogItem> GetLog(long lastLogId);
+        IEnumerable<ILogItem> GetLog();
+        string CreateInstance(string packageName, InstanceConfiguration configuration);
+        IEnumerable<InstanceInformation> GetInstances();
+    }
+
+    public class HostClient : NetworkClient, IHostClient, IRequestIdAllocator
     {
         class LogItem : ILogItem
         {

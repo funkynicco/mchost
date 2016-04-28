@@ -34,11 +34,29 @@
       <HintPath>..\packages\Microsoft.Web.Infrastructure.1.0.0.0\lib\net40\Microsoft.Web.Infrastructure.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.6.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
+    <Reference Include="System.configuration" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Net.Http.Formatting, Version=5.2.3.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.AspNet.WebApi.Client.5.2.3\lib\net45\System.Net.Http.Formatting.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Web" />
     <Reference Include="System.Web.Helpers, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.AspNet.WebPages.3.2.3\lib\net45\System.Web.Helpers.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Web.Http, Version=5.2.3.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.AspNet.WebApi.Core.5.2.3\lib\net45\System.Web.Http.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Web.Http.WebHost, Version=5.2.3.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.AspNet.WebApi.WebHost.5.2.3\lib\net45\System.Web.Http.WebHost.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System.Web.Mvc, Version=5.2.3.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
@@ -69,12 +87,21 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AsyncTask.cs" />
+    <Compile Include="Cache\CacheManager.cs" />
     <Compile Include="Database\Database.cs" />
     <Compile Include="Database\DatabaseManager.cs" />
     <Compile Include="Database\Structures\Package.cs" />
+    <Compile Include="Database\Structures\User.cs" />
     <Compile Include="DataSerializer.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="ILogger.cs" />
+    <Compile Include="MVC\BaseApiController.cs" />
+    <Compile Include="Security\AccountRole.cs" />
+    <Compile Include="Security\RequestAccessAuthorizer.cs" />
+    <Compile Include="Security\RestrictApiAttribute.cs" />
+    <Compile Include="Security\RestrictAttribute.cs" />
+    <Compile Include="Settings.cs" />
     <Compile Include="Minecraft\InstanceConfiguration.cs" />
     <Compile Include="Minecraft\InstanceInformation.cs" />
     <Compile Include="Minecraft\InstanceStatus.cs" />
@@ -85,6 +112,11 @@
     <Compile Include="Network\Packet.cs" />
     <Compile Include="Network\NetworkServer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Security\BruteForceLock.cs" />
+    <Compile Include="Security\UserCookie.cs" />
+    <Compile Include="Security\UserCookieCache.cs" />
+    <Compile Include="Security\UserCookieCacheItem.cs" />
+    <Compile Include="Security\UserIdentity.cs" />
     <Compile Include="Utilities.cs" />
   </ItemGroup>
   <ItemGroup>
