@@ -1,21 +1,14 @@
 ﻿using MCHost.Framework;
-using MCHost.Framework.Minecraft;
 using MCHost.Service;
 using MCHost.Service.Minecraft;
 using MCHost.Service.Network;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
-using System.Linq;
 using System.Net;
-using System.Security.Cryptography;
-using System.Text;
+using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace MCHost
 {
@@ -99,18 +92,18 @@ namespace MCHost
 
             var maxConcurrentInstances = int.Parse(configuration["MaxConcurrentInstances"]);
 
-            using (var server = new Server(logger, _database))
-            using (var instanceManager = new InstanceManager(logger, server, maxConcurrentInstances))
+            using (var webSocketService = new WebSocketService(logger, _database, configuration["IsBackendServer"].ToLower() == "true"))
+            using (var instanceManager = new InstanceManager(logger, maxConcurrentInstances))
             {
-                server.SetInstanceManager(instanceManager);
+                webSocketService.SetInstanceManager(instanceManager); // sets up callbacks
 
                 try
                 {
-                    server.Start(new IPEndPoint[] { new IPEndPoint(IPAddress.Parse(ip), port) });
+                    webSocketService.Start(new IPEndPoint[] { new IPEndPoint(IPAddress.Any, 6694) });
                 }
                 catch (Exception ex)
                 {
-                    logger.Write(LogType.Error, $"Failed to bind on interface {ip}:{port}");
+                    logger.Write(LogType.Error, $"Failed to bind on interface 0.0.0.0:6694");
                     logger.Write(LogType.Error, $"({ex.GetType().Name}): {ex.Message}");
                     return Result.FailedToBindInterface;
                 }
@@ -143,7 +136,7 @@ namespace MCHost
                             break;
                     }
 
-                    server.Process();
+                    webSocketService.Process();
 
                     if (now >= nextInstanceProcess)
                     {
@@ -173,7 +166,7 @@ namespace MCHost
             try
             {
 #endif // !DEBUG
-                result = (int)SubMain(logger);
+            result = (int)SubMain(logger);
 #if !DEBUG
             }
             catch (Exception ex)

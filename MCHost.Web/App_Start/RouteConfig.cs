@@ -19,11 +19,14 @@ namespace MCHost.Web
 
             routes.Add(new WebSocketRouteHandler());
 
-            routes.MapRoute(
+            routes.MapMvcAttributeRoutes();
+
+            // use [Route] instead for controller actions to directly specify a special route
+            /*routes.MapRoute(
                 name: "Login",
                 url: "login",
                 defaults: new { controller = "Home", action = "Login" }
-            );
+            );*/
 
             routes.MapRoute(
                 name: "Default",

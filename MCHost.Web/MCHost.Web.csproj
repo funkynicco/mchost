@@ -118,8 +118,10 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="assets\css\instance-manager.css" />
     <Content Include="assets\css\simplified.css" />
     <Content Include="assets\css\theme.css" />
+    <Content Include="assets\dialogs\start-new-instance-dlg.html" />
     <Content Include="assets\framework\css\bootstrap-theme.css" />
     <Content Include="assets\framework\css\bootstrap-theme.min.css" />
     <Content Include="assets\framework\css\bootstrap.css" />
@@ -132,9 +134,14 @@
     <Content Include="assets\framework\js\ie10-viewport-bug-workaround.js" />
     <Content Include="assets\framework\js\jquery.js" />
     <Content Include="assets\framework\js\npm.js" />
+    <Content Include="assets\img\loader.gif" />
     <Content Include="assets\img\exclamation21.png" />
+    <Content Include="assets\js\dialogs.js" />
+    <Content Include="assets\js\instance-list.js" />
     <Content Include="assets\js\login.js" />
     <Content Include="assets\js\main.js" />
+    <Content Include="assets\js\utilities.js" />
+    <Content Include="favicon.ico" />
     <Content Include="Global.asax" />
     <Content Include="assets\js\service.js" />
     <Content Include="assets\framework\css\bootstrap-theme.css.map" />
@@ -159,6 +166,7 @@
     <Compile Include="App_Start\WebApiConfig.cs" />
     <Compile Include="Controllers\AccountController.cs" />
     <Compile Include="Controllers\Api\LoginController.cs" />
+    <Compile Include="Controllers\Api\PackagesController.cs" />
     <Compile Include="Controllers\Api\TestController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Global.asax.cs">
@@ -174,7 +182,6 @@
     <Content Include="Views\_ViewStart.cshtml" />
     <Content Include="Views\Shared\_Layout.cshtml" />
     <Content Include="Views\Home\Index.cshtml" />
-    <Content Include="Views\Home\Test.cshtml" />
     <Content Include="Views\Shared\LoginLayout.cshtml" />
     <Content Include="Views\Shared\ErrorView.cshtml" />
     <None Include="Web.Debug.config">
@@ -188,6 +195,7 @@
     <Folder Include="App_Data\" />
     <Folder Include="Views\Account\" />
     <Folder Include="Views\Api\" />
+    <Folder Include="Views\Packages\" />
     <Folder Include="Views\Test\" />
   </ItemGroup>
   <ItemGroup>

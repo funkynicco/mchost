@@ -5,114 +5,47 @@
 
 <h2>Instance Manager</h2>
 
-<a href="#" id="btn-new-instance" class="btn btn-primary">Start new instance</a>
+<div id="main-instance-manager">
+    <div id="instance-list-container">
+        <ul id="instance-list">
+            <li id="instance-list-template" data-id="{instance-id}">
+                <div class="sect-1">
+                    <header>{package-name}</header>
+                    <content>{instance-id}</content>
+                </div>
+                <div class="sect-divider">&nbsp;</div>
+                <div class="sect-2">hello</div>
+                <div class="sect-3">{status}</div>
+            </li>
+        </ul>
+        <a href="#" id="btn-new-instance" class="btn btn-primary">Start new instance</a>
+    </div>
 
-<table id="instance-table" class="table table-bordered table-striped">
-    <thead>
-        <tr>
-            <th>Instance</th>
-            <th>Package</th>
-            <th>Status</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
-
-<pre>@Model</pre>
-<input type="text" id="cmd" class="form-control" placeholder="Enter command here" />
+    <div id="instance-log-container">
+        <pre id="console-log">@Model</pre>
+        <input type="text" id="cmd" class="form-control" placeholder="Enter command here" />
+    </div>
+</div>
+<div id="loader">
+    <img src="~/assets/img/loader.gif" />
+    <p>Connecting to service ...</p>
+</div>
 
 @section header
 {
-    <style type="text/css">
-        pre {
-            word-break: normal !important;
-            word-wrap: normal !important;
-            white-space: pre !important;
-            overflow: auto;
-            height: 300px;
-        }
-
-        #instance-table {
-            margin-top: 10px;
-        }
-
-        #cmd {
-            width: 100%;
-            max-width: 100%;
-        }
-
-        .c-yellow {
-            color: #a08800;
-        }
-
-        .c-green {
-            color: #009b14;
-        }
-
-        .c-red {
-            color: #a90000;
-        }
-
-        .tiny-btn {
-            padding: 2px 5px 2px 5px;
-            border-radius: 3px;
-        }
-
-        .tiny-btn:hover {
-            text-decoration: none;
-        }
-    </style>
+    <link rel="stylesheet" href="~/assets/css/instance-manager.css" />
 }
 
 @section scripts
 {
+    <script src="~/assets/js/utilities.js"></script>
     <script src="~/assets/js/service.js"></script>
+    <script src="~/assets/js/dialogs.js"></script>
+    <script src="~/assets/js/instance-list.js"></script>
+    <script src="~/assets/js/main.js"></script>
 
     <script type="text/javascript">
         var lastLogId = 0;
-
-        function addConsoleLog(str) {
-            var html = $('pre').html();
-            if (html.length > 0)
-                html += '\r\n';
-            html += str;
-
-            $('pre').html(html);
-            $('pre').scrollTop($('pre').prop("scrollHeight"));
-        }
-
-        function getStatusClass(status) {
-            switch (status) {
-                case 1: return 'c-yellow';
-                case 2: return 'c-green';
-                case 3: return 'c-yellow';
-                case 5: return 'c-red';
-            }
-
-            return null;
-        }
-
-        function getStatusString(status) {
-            switch (status) {
-                case 0: return 'Idle';
-                case 1: return 'Starting';
-                case 2: return 'Running';
-                case 3: return 'Stopping';
-                case 4: return 'Stopped';
-                case 5: return 'Error';
-            }
-
-            return 'Unknown';
-        }
-
-        function buildStatusTag(status) {
-            var cssClass = getStatusClass(status);
-            if (cssClass)
-                return '<span class="' + cssClass + '">' + getStatusString(status) + '</span>';
-            else
-                return '<span>' + getStatusString(status) + '</span>';
-        }
 
         function selectInstance(id) {
             console.log('Select instance => ' + id);
@@ -168,25 +101,5 @@
 
             return false;
         }
-
-        $(function () {
-            /*
-            setInterval(function () {
-                $.get('/home/get-log/' + lastLogId, function (data) {
-                    for (var i = 0; i < data.length; ++i) {
-                        if (data[i].Id > lastLogId)
-                            lastLogId = data[i].Id;
-
-                        addConsoleLog(data[i].Text);
-                    }
-                })
-            }, 1000);
-
-            $('#btn-new-instance').click(startNewInstance);
-
-            updateInstanceList();
-
-            Service.initiate();*/
-        })
     </script>
 }

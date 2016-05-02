@@ -24,13 +24,16 @@ var Service = {
     subscriptionMethods: [],
     packetLookupTable: [],
 
-    getWebSocketUrl: function() {
+    getWebSocketUrl: function () {
+
+        return 'ws://localhost:6694';
+
         var baseUrl = location.origin;
         if (baseUrl.indexOf("http://") == 0) {
             baseUrl = 'ws' + baseUrl.substr(4);
         } else if (baseUrl.indexOf('https://') == 0) {
             baseUrl = 'wss' + baseUrl.substr(5);
-        }  else {
+        } else {
             console.log('Failed to retrieve WebSocket URL from origin: ' + location.origin);
             baseUrl = null;
         }
@@ -38,7 +41,7 @@ var Service = {
         return baseUrl;
     },
 
-    initiate: function () {
+    initiate: function (initCallback) {
 
         Service.packetLookupTable = [];
         Service.packetLookupTable['new'] = 'NewInstance';
@@ -53,7 +56,12 @@ var Service = {
         console.log('WebSocket connecting to \'' + url + '\' ...');
         Service.socket = new WebSocket(url);
 
+        var isInitialize = true;
+
         Service.socket.onopen = function () {
+            isInitialize = false;
+            if (initCallback)
+                initCallback(true, null);
         }
 
         Service.socket.onclose = function (event) {
@@ -64,6 +72,10 @@ var Service = {
         Service.socket.onerror = function (event) {
             console.log('onerror');
             console.log(event);
+
+            if (isInitialize &&
+                initCallback)
+                initCallback(false, event);
         }
 
         Service.socket.onmessage = function (event) {

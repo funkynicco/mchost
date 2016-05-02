@@ -26,10 +26,12 @@ namespace MCHost.Framework
         void AddUserCookie(string key, string ip, int userid, DateTime expireDate);
         void DeleteUserCookie(string key);
         void DeleteUserCookies(int userid);
+        User ResumeSession(string key);
         #endregion
 
         void AddLog(string text);
         void AddUserLog(int userId, string text);
+        Package GetPackage(string name);
         IEnumerable<Package> GetPackages();
     }
 
@@ -161,6 +163,20 @@ namespace MCHost.Framework
                 query.ExecuteNonQuery();
             }
         }
+
+        public User ResumeSession(string key)
+        {
+            using (var query = Query("ResumeSession")
+                .CommandType(CommandType.StoredProcedure)
+                .AddParameter("key", SqlDbType.VarChar, key)
+                .Execute())
+            {
+                if (query.Read())
+                    return User.FromResult(query);
+            }
+
+            return null;
+        }
         #endregion
 
         public void AddLog(string text)
@@ -183,6 +199,20 @@ namespace MCHost.Framework
             {
                 query.ExecuteNonQuery();
             }
+        }
+
+        public Package GetPackage(string name)
+        {
+            using (var query = Query("[dbo].[GetPackage]")
+                .CommandType(CommandType.StoredProcedure)
+                .AddParameter("name", SqlDbType.VarChar, name)
+                .Execute())
+            {
+                if (query.Read())
+                    return Package.FromResult(query);
+            }
+
+            return null;
         }
 
         public IEnumerable<Package> GetPackages()

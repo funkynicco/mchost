@@ -5,6 +5,7 @@ obj/
 
 *.user
 *.suo
+*.dbmdl
 
 /GitIgnored
 /configuration.xml

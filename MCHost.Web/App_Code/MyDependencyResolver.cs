@@ -148,6 +148,28 @@ namespace MCHost.Web
             }
         }
 
+        public bool TryGetDependency<T>(out T result)
+        {
+            DependencyObject dpo;
+            if (!_dependencies.TryGetValue(typeof(T), out dpo))
+            {
+                result = default(T);
+                return false;
+            }
+
+            result = (T)dpo.GetInstance();
+            return true;
+        }
+
+        public T GetDependency<T>()
+        {
+            T dependency;
+            if (!TryGetDependency(out dependency))
+                throw new KeyNotFoundException("Could not find dependency: " + typeof(T).FullName);
+
+            return dependency;
+        }
+
         public object GetService(Type serviceType)
         {
             if (serviceType.IsSubclassOf(typeof(ApiController)) ||

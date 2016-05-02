@@ -25,60 +25,13 @@ namespace MCHost.Web.Controllers
             _hostClient = hostClient;
         }
 
+        [Restrict(AccountRole.Registered)]
         public ActionResult Index()
         {
             return View();
         }
-
-        [ActionName("get-log")]
-        public ActionResult GetLog(long id)
-        {
-            return Json(_hostClient.GetLog(id), JsonRequestBehavior.AllowGet);
-        }
-
-        public ActionResult Test()
-        {
-            return View();
-        }
-
-        [ActionName("start-instance")]
-        public ActionResult StartInstance()
-        {
-            var configuration = InstanceConfiguration.Default;
-
-            try
-            {
-                return Json(new
-                {
-                    result = true,
-                    instanceId = _hostClient.CreateInstance("Test", configuration)
-                }, JsonRequestBehavior.AllowGet);
-            }
-            catch (Exception ex)
-            {
-                return Json(new { result = false, error = ex.Message }, JsonRequestBehavior.AllowGet);
-            }
-        }
-
-        [ActionName("list-instances")]
-        public ActionResult ListInstances()
-        {
-            try
-            {
-                return Json(new
-                {
-                    result = true,
-                    instances = _hostClient.GetInstances()
-                }, JsonRequestBehavior.AllowGet);
-            }
-            catch (Exception ex)
-            {
-                return Json(new { result = false, error = ex.Message }, JsonRequestBehavior.AllowGet);
-            }
-        }
-
-        /////////////////////////////////////////
-
+        
+        [Route("login")]
         public ActionResult Login()
         {
             if (IsAuthenticated)

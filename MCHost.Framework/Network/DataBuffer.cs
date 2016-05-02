@@ -295,6 +295,19 @@ namespace MCHost.Framework.Network
             Write(bytes, 0, bytes.Length);
         }
         #endregion
+
+        public static DataBuffer FromString(string content, Encoding encoding)
+        {
+            var bytes = encoding.GetBytes(content);
+            var buffer = new DataBuffer();
+            buffer.Write(bytes, 0, bytes.Length);
+            return buffer;
+        }
+
+        public static DataBuffer FromString(string content)
+        {
+            return FromString(content, Encoding.GetEncoding(1252));
+        }
     }
 
     public class EndOfBufferException : Exception

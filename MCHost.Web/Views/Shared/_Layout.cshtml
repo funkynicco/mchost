@@ -34,13 +34,10 @@
                     <li><a href="/">Home</a></li>
                     <li><a href="/home/test">Test</a></li>
                 </ul>
-                @if (ViewBag.IsAuthenticated)
-                {
-                    <ul class="nav navbar-nav navbar-right">
-                        <li class="active"><a href="#">@ViewBag.User.Email</a></li>
-                        <li><a href="/account/logout">Log out</a></li>
-                    </ul>
-                }
+                <ul class="nav navbar-nav navbar-right">
+                    <li class="active"><a href="#">@ViewBag.User.Email</a></li>
+                    <li><a href="/account/logout">Log out</a></li>
+                </ul>
             </div>
         </div>
     </div>

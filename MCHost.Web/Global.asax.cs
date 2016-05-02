@@ -40,6 +40,8 @@ namespace MCHost.Web
             if (!hostAddressMatch.Success)
                 throw new Exception("The MCHostService parameter is invalid in Web.config");
 
+            _hostClient.SetWebSocketClientHandler(DependencyResolver.GetDependency<IWebSocketClientHandler>());
+
             _hostClient.Connect(hostAddressMatch.Groups[1].Value, int.Parse(hostAddressMatch.Groups[2].Value));
         }
 

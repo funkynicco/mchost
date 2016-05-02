@@ -113,6 +113,13 @@ namespace MCHost.Web
 
         private readonly Dictionary<string, InstanceInformation> _runningInstances = new Dictionary<string, InstanceInformation>();
 
+        private IWebSocketClientHandler _webSocketClientHandler;
+
+        public void SetWebSocketClientHandler(IWebSocketClientHandler webSocketClientHandler)
+        {
+            _webSocketClientHandler = webSocketClientHandler;
+        }
+
         private void Log(string str)
         {
             lock (_lock)
@@ -172,6 +179,12 @@ namespace MCHost.Web
         protected override void OnNewInstance(int requestId, string instanceId, string packageName)
         {
             Log($"New instance of package '{packageName}' => {instanceId}");
+
+            /*_webSocketClientHandler.Broadcast("new", new
+            {
+                instanceId = instanceId,
+                packageName = packageName
+            }).RunSynchronously();*/
         }
 
         protected override void OnInstanceStatus(int requestId, string instanceId, InstanceStatus status)

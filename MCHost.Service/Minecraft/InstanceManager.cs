@@ -41,14 +41,20 @@ namespace MCHost.Service.Minecraft
         InstanceConfiguration GetInstanceConfiguration(string instanceId);
     }
 
+    public interface IInstanceEventListener
+    {
+        void OnInstanceStatus(string instanceId, InstanceStatus status);
+        void OnInstanceLog(string instanceId, string text);
+    }
+
     public class InstanceManager : IDisposable, IInstanceManager
     {
         class Instance : IInstance, IDisposable
         {
+            private readonly InstanceManager _instanceManager;
             private readonly string _id;
             private readonly Package _package;
             private readonly ILogger _logger;
-            private readonly IServer _server;
 
             private Thread _thread;
             private readonly ManualResetEvent _shutdownEvent = new ManualResetEvent(false);
@@ -68,12 +74,12 @@ namespace MCHost.Service.Minecraft
             private LinkedList<string> _commandQueue = new LinkedList<string>();
             private readonly object _commandLock = new object();
 
-            public Instance(string id, Package package, ILogger logger, IServer server)
+            public Instance(InstanceManager instanceManager, string id, Package package, ILogger logger)
             {
+                _instanceManager = instanceManager;
                 _id = id;
                 _package = package;
                 _logger = logger;
-                _server = server;
 
                 _status = InstanceStatus.Idle;
                 Configuration = InstanceConfiguration.Default;
@@ -136,7 +142,9 @@ namespace MCHost.Service.Minecraft
 
             private void WorkerThread()
             {
-                _server.BroadcastInstanceStatus(_id, _status = InstanceStatus.Starting);
+                _status = InstanceStatus.Starting;
+                foreach (var listener in _instanceManager._instanceEventListeners)
+                    listener.OnInstanceStatus(_id, _status);
 
                 var instanceDirectory = Path.Combine(Environment.CurrentDirectory, "instances", _id);
                 Directory.CreateDirectory(instanceDirectory);
@@ -210,10 +218,15 @@ namespace MCHost.Service.Minecraft
                               if (e.Data != null)
                               {
                                   _logger.Write(LogType.Normal, "[MC] " + e.Data);
-                                  _server.BroadcastInstanceLog(_id, e.Data);
+                                  foreach (var listener in _instanceManager._instanceEventListeners)
+                                      listener.OnInstanceLog(_id, e.Data);
 
                                   if (e.Data.Contains(": Done"))
-                                      _server.BroadcastInstanceStatus(_id, _status = InstanceStatus.Running);
+                                  {
+                                      _status = InstanceStatus.Running;
+                                      foreach (var listener in _instanceManager._instanceEventListeners)
+                                          listener.OnInstanceStatus(_id, _status);
+                                  }
                               }
                           };
 
@@ -233,7 +246,9 @@ namespace MCHost.Service.Minecraft
                                 sentShutdown = true;
                                 _logger.Write(LogType.Warning, "Sending stop command ...");
                                 process.StandardInput.WriteLine("stop");
-                                _server.BroadcastInstanceStatus(_id, _status = InstanceStatus.Stopping);
+                                _status = InstanceStatus.Stopping;
+                                foreach (var listener in _instanceManager._instanceEventListeners)
+                                    listener.OnInstanceStatus(_id, _status);
                             }
 
                             int n = WaitHandle.WaitAny(waitEvents, 100); // WaitHandle.WaitTimeout on timeout ...
@@ -268,7 +283,9 @@ namespace MCHost.Service.Minecraft
                     }
 
                     _logger.Write(LogType.Notice, $"Instance {_id} stopped");
-                    _server.BroadcastInstanceStatus(_id, _status = InstanceStatus.Stopped);
+                    _status = InstanceStatus.Stopped;
+                    foreach (var listener in _instanceManager._instanceEventListeners)
+                        listener.OnInstanceStatus(_id, _status);
                 }
                 catch (Exception ex)
                 {
@@ -294,7 +311,6 @@ namespace MCHost.Service.Minecraft
         }
 
         private readonly ILogger _logger;
-        private readonly IServer _server;
         private readonly int _maxConcurrentInstances;
 
         public int MaxConcurrentInstances { get { return _maxConcurrentInstances; } }
@@ -302,10 +318,11 @@ namespace MCHost.Service.Minecraft
         private readonly Dictionary<string, IInstance> _instances = new Dictionary<string, IInstance>();
         public IEnumerable<IInstance> Instances { get { return _instances.Values; } }
 
-        public InstanceManager(ILogger logger, IServer server, int maxConcurrentInstances)
+        private readonly List<IInstanceEventListener> _instanceEventListeners = new List<IInstanceEventListener>();
+
+        public InstanceManager(ILogger logger, int maxConcurrentInstances)
         {
             _logger = logger;
-            _server = server;
             _maxConcurrentInstances = maxConcurrentInstances;
         }
 
@@ -318,6 +335,11 @@ namespace MCHost.Service.Minecraft
             _instances.Clear();
         }
 
+        public void AddEventListener(IInstanceEventListener listener)
+        {
+            _instanceEventListeners.Add(listener);
+        }
+
         public IInstance CreateInstance(Package package)
         {
             if (_instances.Count >= _maxConcurrentInstances)
@@ -325,7 +347,7 @@ namespace MCHost.Service.Minecraft
 
             var id = DateTime.UtcNow.Ticks.ToString("x16");
 
-            var instance = new Instance(id, package, _logger, _server);
+            var instance = new Instance(this, id, package, _logger);
             _instances.Add(id, instance);
             return instance;
         }

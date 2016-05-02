@@ -31,9 +31,8 @@ namespace MCHost.Web
 
             config.RegisterPersistent<IDatabase, Database>();
 
-            config.RegisterPersistent<IWebSocketClientHandler, WebSocketClientHandler>();
-
             config.RegisterInstance(hostClient);
+            config.RegisterPersistent<IWebSocketClientHandler, WebSocketClientHandler>();
         }
     }
 }

@@ -11,13 +11,19 @@ namespace MCHost.Framework.Network
     {
         private Socket _socket;
         private bool _disconnect = false;
+        private string _disconnectMessage = null;
 
         public Socket Socket { get { return _socket; } }
         public bool IsDisconnect { get { return _disconnect; } }
+        public string DisconnectMessage { get { return _disconnectMessage; } }
+
+        private readonly string _ip;
+        public virtual string IP { get { return _ip; } }
 
         public BaseClient(Socket socket)
         {
             _socket = socket;
+            _ip = socket.RemoteEndPoint.ToString().Split(':')[0];
         }
 
         public void Dispose()
@@ -40,6 +46,13 @@ namespace MCHost.Framework.Network
         public void Disconnect()
         {
             _disconnect = true;
+            _disconnectMessage = null;
+        }
+
+        public void Disconnect(string message)
+        {
+            _disconnect = true;
+            _disconnectMessage = message;
         }
     }
 }

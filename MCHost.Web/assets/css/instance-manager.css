@@ -1,0 +1,156 @@
+﻿#main-instance-manager {
+    display: none;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    background: #e0e0e0;
+    min-width: 918px;
+}
+
+#loader img,
+#loader p {
+    display: inline-block;
+    vertical-align: top;
+    margin-left: 3px;
+}
+
+pre {
+    word-break: normal !important;
+    word-wrap: normal !important;
+    white-space: pre !important;
+    overflow: auto;
+    height: 284px;
+}
+
+#instance-table {
+    margin-top: 10px;
+    width: auto;
+}
+
+#instance-table thead tr th:nth-child(1) {
+    min-width: 250px;
+    max-width: 250px;
+}
+
+#instance-table thead tr th:nth-child(2) {
+    min-width: 250px;
+    max-width: 250px;
+}
+
+#instance-table thead tr th:nth-child(3) {
+    min-width: 150px;
+    max-width: 150px;
+}
+
+#instance-table thead tr th:nth-child(4) {
+    min-width: 136px;
+    max-width: 136px;
+}
+
+#cmd {
+    width: 100%;
+    max-width: 100%;
+}
+
+.c-yellow {
+    color: #a08800;
+    background: #fffc76;
+}
+
+.c-green {
+    color: #009b14;
+    background: #9ef6a5;
+}
+
+.c-red {
+    color: #a90000;
+    background: #e4b2b2;
+}
+
+.tiny-btn {
+    padding: 2px 5px 2px 5px;
+    border-radius: 3px;
+}
+
+.tiny-btn:hover {
+    text-decoration: none;
+}
+
+#instance-list-container {
+    display: inline-block;
+    width: 49%;
+    vertical-align: top;
+}
+
+#instance-log-container {
+    margin-left: 10px;
+    vertical-align: top;
+    display: inline-block;
+    width: 49%;
+}
+
+#instance-list {
+    padding: 0;
+    list-style-type: none;
+}
+
+#instance-list li {
+    background: #f5f5f5;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 5px;
+    display: block;
+}
+
+#instance-list li:hover,
+#instance-list li.active {
+    background: #e8e8e8;
+    cursor: pointer;
+}
+
+#instance-list li:not(:first-child){
+    margin-top: 7px;
+}
+
+#instance-list li header {
+    font-weight: bold;
+    font-size: 20px;
+}
+
+.sect-divider {
+    border-right: 1px solid #ccc;
+    display: inline-block;
+    height: 40px;
+    margin-top: 5px;
+}
+
+.sect-1,
+.sect-2,
+.sect-3 {
+    overflow: hidden;
+    display: inline-block;
+    vertical-align: top;
+}
+
+.sect-1 {
+    width: 150px;
+}
+
+.sect-2 {
+    width: 150px;
+}
+
+.sect-3 {
+    float: right;
+}
+
+.sect-3 span {
+    display: block;
+    padding: 2px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+#instance-list-template {
+    display: none;
+}

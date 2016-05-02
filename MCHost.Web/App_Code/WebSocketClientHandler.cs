@@ -1,4 +1,6 @@
 ﻿using MCHost.Framework;
+using MCHost.Framework.Json;
+using MCHost.Framework.Minecraft;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -18,18 +20,21 @@ namespace MCHost.Web
         StringBuilder Buffer { get; }
 
         Task Send(string text);
+        Task Send(string header, object data);
     }
 
     public interface IWebSocketClientHandler
     {
         void AcceptWebSocketRequest(HttpContext httpContext);
         Task Broadcast(string text);
+        Task Broadcast(string header, object data);
     }
 
     public class WebSocketClientHandler : IWebSocketClientHandler
     {
         class WebSocketClient : IWebSocketClient
         {
+            private readonly ILogger _logger;
             private readonly WebSocketClientHandler _clientHandler;
 
             private WebSocketContext _context;
@@ -39,8 +44,9 @@ namespace MCHost.Web
 
             public StringBuilder Buffer { get; private set; } = new StringBuilder();
 
-            public WebSocketClient(WebSocketClientHandler clientHandler, int id)
+            public WebSocketClient(ILogger logger, WebSocketClientHandler clientHandler, int id)
             {
+                _logger = logger;
                 _clientHandler = clientHandler;
                 _id = id;
             }
@@ -107,7 +113,14 @@ namespace MCHost.Web
 
             public async Task Send(string text)
             {
+                _logger.Write(LogType.Notice, "Client.Send " + text);
                 await Send(new ArraySegment<byte>(Encoding.UTF8.GetBytes(text)));
+            }
+
+            public async Task Send(string header, object data)
+            {
+                var json = JsonConvert.SerializeObject(data);
+                await Send($"{header.ToLower()} {Utilities.EscapeWebSocketContent(json)}|");
             }
         }
 
@@ -115,10 +128,12 @@ namespace MCHost.Web
         private readonly Queue<int> _idQueue = new Queue<int>();
         private int _nextId = 1;
         private readonly object _lock = new object();
+        private readonly IHostClient _hostClient;
         private readonly ILogger _logger;
 
-        public WebSocketClientHandler(ILogger logger)
+        public WebSocketClientHandler(IHostClient hostClient, ILogger logger)
         {
+            _hostClient = hostClient;
             _logger = logger;
         }
 
@@ -142,7 +157,7 @@ namespace MCHost.Web
 
             lock (_lock)
             {
-                client = new WebSocketClient(this, AllocateId());
+                client = new WebSocketClient(_logger, this, AllocateId());
                 _clients.Add(client.Id, client);
             }
 
@@ -151,10 +166,26 @@ namespace MCHost.Web
 
         public virtual async Task Broadcast(string text)
         {
-            foreach (var client in _clients.Values)
+            var tasks = new List<Task>();
+
+            lock (_lock)
             {
-                await client.Send(text);
+                foreach (var client in _clients.Values)
+                {
+                    var task = client.Send(text);
+                    _logger.Write(LogType.Notice, "Broadcast " + text);
+                    tasks.Add(task);
+                    task.Start();
+                }
             }
+
+            await Task.WhenAll(tasks);
+        }
+
+        public virtual async Task Broadcast(string header, object data)
+        {
+            var json = JsonConvert.SerializeObject(data);
+            await Broadcast($"{header.ToLower()} {Utilities.EscapeWebSocketContent(json)}|");
         }
 
         // handlers
@@ -164,8 +195,7 @@ namespace MCHost.Web
 
             //await client.Send("new {\"instanceId\":\"531853186\",\"packageName\":\"hello world\"}|");
 
-            var json = JsonConvert.SerializeObject(client);
-            await client.Send("test " + Utilities.EscapeWebSocketContent(json) + "|");
+            await client.Send("test", client);
         }
 
         protected async virtual Task OnWebSocketClose(IWebSocketClient client)
@@ -201,7 +231,32 @@ namespace MCHost.Web
         {
             _logger.Write(LogType.Normal, "Pack(" + header + "): " + content + "\r\n");
 
-            //await client.Send("echo you sent: " + Utilities.EscapeWebSocketContent(content) + "|echo hi|");
+            try
+            {
+                // implement json parse error exception so that we dont crash the entire app but only disconnect this client
+                var data = JsonParser.Parse<JsonObject>(content);
+                if (header == "new")
+                {
+                    var packageName = data.GetMember<JsonString>("packageName").Value;
+                    var instanceConfiguration = InstanceConfiguration.Default;
+
+                    var instanceId = _hostClient.CreateInstance(
+                        packageName,
+                        instanceConfiguration);
+
+                    await Broadcast("new", new
+                    {
+                        instanceId = instanceId,
+                        packageName = packageName
+                    });
+                }
+            }
+            catch (Framework.Json.JsonException ex)
+            {
+                _logger.Write(
+                    LogType.Error,
+                    $"[{header}] Json protocol error: ({ex.GetType().Name}) '{ex.Message}' in packet: {content}");
+            }
         }
     }
 }

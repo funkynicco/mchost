@@ -79,6 +79,8 @@
     <Build Include="Service\Stored Procedures\UpdateUserCookieExpireDate.sql" />
     <Build Include="Service\Tables\UserLog.sql" />
     <Build Include="Service\Stored Procedures\AddUserLog.sql" />
+    <Build Include="Service\Stored Procedures\ResumeSession.sql" />
+    <Build Include="Service\Stored Procedures\GetPackage.sql" />
   </ItemGroup>
   <ItemGroup>
     <RefactorLog Include="MCHost.DB.refactorlog" />

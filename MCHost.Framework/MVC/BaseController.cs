@@ -17,9 +17,7 @@ namespace MCHost.Framework.MVC
         /// Gets or sets the default cache duration for objects in this controller.
         /// </summary>
         protected TimeSpan CacheDuration { get; set; }
-
-        protected virtual bool RequireAccount { get; }
-
+        
         /// <summary>
         /// [Nicco] Gets the currently logged on user.
         /// </summary>
@@ -50,9 +48,6 @@ namespace MCHost.Framework.MVC
         protected override IAsyncResult BeginExecute(RequestContext requestContext, AsyncCallback callback, object state)
         {
             var user = RequestAccessAuthorizer.Authorize(_database);
-            if (user == null &&
-                RequireAccount)
-                requestContext.HttpContext.Response.Redirect("/login", true);
 
             ViewBag.IsAuthenticated = user != null;
             ViewBag.User = user;
