@@ -1,4 +1,5 @@
 ﻿using MCHost.Framework;
+using MCHost.Service.Minecraft;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,6 +39,8 @@ namespace MCHost
         public ServiceType ServiceType { get { return ServiceType.InstanceService; } }
         public string ConnectionString { get { return this["ConnectionString"]; } }
         public string LogDirectory { get { return this["LogDirectory"]; } }
+        public string MinecraftHostname { get { return this["MinecraftHostname"]; } }
+        public string DefaultJavaFilename { get { return this["DefaultJavaFilename"]; } }
 
         private Configuration()
         {
@@ -137,15 +140,22 @@ namespace MCHost
                     throw new InvalidConfigurationException("Unknown node in Configuration/IgnoreMinecraftConsole: " + node.OuterXml);
             }
 
+            var availableBindingsNode = doc.SelectSingleNode("Configuration/Minecraft/AvailableBindings");
+            if (availableBindingsNode == null)
+                throw new InvalidConfigurationException("Configuration/Minecraft/AvailableBindings node was not found.");
+
+            if (BindingInterfaces.Load(availableBindingsNode) == 0)
+                throw new InvalidConfigurationException("Configuration/Minecraft/AvailableBindings does not have any Binding nodes.");
+
             return configuration;
         }
+    }
 
-        public class InvalidConfigurationException : Exception
+    public class InvalidConfigurationException : Exception
+    {
+        public InvalidConfigurationException(string message) :
+            base(message)
         {
-            public InvalidConfigurationException(string message) :
-                base(message)
-            {
-            }
         }
     }
 }

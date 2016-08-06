@@ -1,4 +1,5 @@
 ﻿using MCHost.Framework.Network;
+using MCHost.Interfaces.Minecraft;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -11,10 +12,6 @@ namespace MCHost.Framework.Minecraft
 {
     public class InstanceConfiguration
     {
-        [Required]
-        [RegularExpression(@"^\d+\.\d+.\d+.\d+:\d+$")]
-        public string BindInterface { get; set; }
-
         [Required]
         public string Motd { get; set; }
 
@@ -69,7 +66,6 @@ namespace MCHost.Framework.Minecraft
 
         public void Serialize(IDataWriter stream)
         {
-            stream.Write(BindInterface);
             stream.Write(Motd);
             stream.Write(EnableCommandBlocks);
             stream.Write(MaxPlayers);
@@ -90,11 +86,10 @@ namespace MCHost.Framework.Minecraft
 
         // static
 
-        public static InstanceConfiguration Deserialize(IDataReader stream)
+        public static InstanceConfiguration Deserialize(ISettings settings, IDataReader stream)
         {
-            var config = Default;
-
-            config.BindInterface = stream.ReadString();
+            var config = CreateDefault(settings);
+            
             config.Motd = stream.ReadString();
             config.EnableCommandBlocks = stream.ReadBoolean();
             config.MaxPlayers = stream.ReadInt32();
@@ -113,30 +108,26 @@ namespace MCHost.Framework.Minecraft
 
                 config.ExtraConfigurationValues[key] = value;
             }
-            
+
             return config;
         }
 
-        public static InstanceConfiguration Default
+        public static InstanceConfiguration CreateDefault(ISettings settings)
         {
-            get
+            return new InstanceConfiguration()
             {
-                return new InstanceConfiguration()
-                {
-                    BindInterface = "0.0.0.0:25565",
-                    Motd = "Minecraft",
-                    EnableCommandBlocks = true,
-                    MaxPlayers = 20,
-                    AnnouncePlayerAchievements = true,
+                Motd = "Minecraft",
+                EnableCommandBlocks = true,
+                MaxPlayers = 20,
+                AnnouncePlayerAchievements = true,
 
-                    JavaExecutable = "java",
-                    JavaInitialMemoryMegabytes = 256,
-                    JavaMaximumMemoryMegabytes = 1024,
-                    MinecraftJarFilename = "server.jar",
+                JavaExecutable = settings.DefaultJavaFilename,
+                JavaInitialMemoryMegabytes = 256,
+                JavaMaximumMemoryMegabytes = 1024,
+                MinecraftJarFilename = "server.jar",
 
-                    ExtraConfigurationValues = new Dictionary<string, string>()
-                };
-            }
+                ExtraConfigurationValues = new Dictionary<string, string>()
+            };
         }
     }
 }

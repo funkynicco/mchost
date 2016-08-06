@@ -10,6 +10,8 @@ namespace MCHost.WebSockets
 {
     public partial class WebSocketClient : BaseClient
     {
+        private readonly WebSocketServer _server;
+
         public DataBuffer Buffer { get; private set; }
         public DateTime LastDataReceived { get; set; }
         public bool IsWebSocket { get; private set; }
@@ -30,9 +32,10 @@ namespace MCHost.WebSockets
             }
         }
 
-        public WebSocketClient(Socket socket) :
+        public WebSocketClient(WebSocketServer server, Socket socket) :
             base(socket)
         {
+            _server = server;
             Buffer = new DataBuffer();
             LastDataReceived = DateTime.UtcNow;
         }
@@ -59,6 +62,20 @@ namespace MCHost.WebSockets
 
         private void Send(byte[] buffer, int offset, int length)
         {
+            /*if (System.Threading.Thread.CurrentThread.ManagedThreadId != _server.MainThreadId)
+                throw new Exception("Sent from a different thread!!");
+
+            var sb = new StringBuilder(length * 3);
+            for (int i = 0; i < length; ++i)
+            {
+                if (i > 0)
+                    sb.Append(' ');
+                sb.Append($"{buffer[i].ToString("X2")}");
+            }
+
+            System.IO.Directory.CreateDirectory("binary");
+            System.IO.File.AppendAllText("binary\\send.txt", $"{sb.ToString()}\r\n");*/
+
             try
             {
                 while (offset < length)
@@ -110,10 +127,11 @@ namespace MCHost.WebSockets
             {
                 buffer.Write((byte)data.Length);
             }
-            else if (data.Length <= 65535)
+            else if (data.Length <= ushort.MaxValue)
             {
+                // needs the masking shit??
                 buffer.Write((byte)126);
-                buffer.Write(WebSocketHeader.ReverseBytes((ushort)data.Length));
+                buffer.Write((short)WebSocketHeader.ReverseBytes((ushort)data.Length));
             }
             else
             {

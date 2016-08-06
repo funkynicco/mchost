@@ -1,13 +1,19 @@
-﻿function addConsoleLog(str) {
-    var element = $('#console-log');
+﻿var instanceList = new InstanceList();
 
-    var html = element.html();
-    if (html.length > 0)
-        html += '\r\n';
-    html += str;
+function askShutdown(instanceId) {
+    askShutdownDialog(instanceId, function () {
+        Service.send('stp', { instanceId: instanceId });
+    })
 
-    element.html(html);
-    element.scrollTop(element.prop("scrollHeight"));
+    return false;
+}
+
+function askTerminate(instanceId) {
+    askTerminateDialog(instanceId, function () {
+        Service.send('trm', { instanceId: instanceId });
+    })
+
+    return false;
 }
 
 function bindInterface() {
@@ -18,54 +24,54 @@ function bindInterface() {
 
         return false;
     })
+
+    $('#cmd').keydown(function (evt) {
+        if (evt.keyCode == 13) {
+            var cmd = $(this).val();
+            if (cmd.length > 0) {
+                $(this).val('');
+                var instanceId = instanceList.getSelected();
+                if (instanceId) {
+                    Service.send('cmd', {
+                        instanceId: instanceId,
+                        command: cmd
+                    });
+                }
+            }
+            return false;
+        }
+
+        return true;
+    })
 }
 
 $(function () {
-
-    var instanceList = new InstanceList();
-    instanceList.add('08d371eae4ca52ad', 'Hoodoo', 2);
-    instanceList.add('18d17ca67d8186f2', 'Infinity', 2);
-    instanceList.add('6428c8317d1768ad', 'Infinity', 2);
     instanceList.update();
 
-    setTimeout(function () {
-        instanceList.instances[1].isSelected = true;
-        instanceList.update();
-    },2000)
-
     Service.on('NewInstance', function (data) {
-        console.log('New instance of id ' + data.instanceId + ' with package name: ' + data.packageName);
-        addInstanceToList({
-            instanceId: data.instanceId,
-            packageName: data.packageName,
-            status: 0
-        });
+        instanceList.add(data.instanceId, data.packageName, data.status, data.address);
     })
 
     Service.on('InstanceStatus', function (data) {
-        console.log('Instance status of ' + data.instanceId + ' => ' + data.status);
+        instanceList.updateInstance(data.instanceId, {
+            status: data.status
+        })
     })
 
     Service.on('InstanceLog', function (data) {
-        console.log('[' + data.instanceId + '] ' + data.text);
-    })
-
-    Service.on('InstanceConfiguration', function (data) {
-        console.log('Instance config from ' + data.instanceId);
+        instanceList.addLog(data.instanceId, data.text);
     })
 
     Service.on('InstanceList', function (data) {
+        instanceList.clear();
         for (var i = 0; i < data.instances.length; ++i) {
-            console.log(data.instances[i]);
+            var instance = data.instances[i];
+            instanceList.add(instance.instanceId, instance.packageName, instance.status, instance.address, instance.lastLog);
         }
     })
 
     Service.on('ServiceError', function (data) {
         console.log('[Service Error] ' + data.message);
-    })
-
-    Service.on('Test', function (data) {
-        console.log(data);
     })
 
     Service.initiate(function (result, event) {
@@ -78,5 +84,8 @@ $(function () {
                     .fadeIn(400);
             }
         })
+    }, function (evtName, event) {
+        // lost connection callback - evtName is either 'error' or 'closed'
+        $('#lost-connection-div').fadeIn();
     })
 })

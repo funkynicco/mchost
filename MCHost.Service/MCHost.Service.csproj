@@ -57,6 +57,8 @@
   <ItemGroup>
     <Compile Include="Configuration.cs" />
     <Compile Include="Logger.cs" />
+    <Compile Include="Minecraft\BindingInterfaces.cs" />
+    <Compile Include="Minecraft\InstanceLogManager.cs" />
     <Compile Include="Minecraft\InstanceManager.cs" />
     <Compile Include="Minecraft\MinecraftConfiguration.cs" />
     <Compile Include="Network\Broadcast.cs" />
@@ -94,6 +96,10 @@
     <ProjectReference Include="..\MCHost.Framework\MCHost.Framework.csproj">
       <Project>{483ef51a-7608-448b-9d8f-60c707a2bbd5}</Project>
       <Name>MCHost.Framework</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\MCHost.Interfaces\MCHost.Interfaces.csproj">
+      <Project>{86716bdb-c5c4-4d6d-a9fd-1bb5481a3e3e}</Project>
+      <Name>MCHost.Interfaces</Name>
     </ProjectReference>
     <ProjectReference Include="..\MCHost.WebSockets\MCHost.WebSockets.csproj">
       <Project>{95e0e8bb-240d-4dec-9af6-0e42fc4bda49}</Project>

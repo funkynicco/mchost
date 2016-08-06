@@ -92,18 +92,18 @@ namespace MCHost
 
             var maxConcurrentInstances = int.Parse(configuration["MaxConcurrentInstances"]);
 
-            using (var webSocketService = new WebSocketService(logger, _database, configuration["IsBackendServer"].ToLower() == "true"))
-            using (var instanceManager = new InstanceManager(logger, maxConcurrentInstances))
+            using (var webSocketService = new WebSocketService(logger, _database, configuration))
+            using (var instanceManager = new InstanceManager(logger, configuration, maxConcurrentInstances))
             {
                 webSocketService.SetInstanceManager(instanceManager); // sets up callbacks
 
                 try
                 {
-                    webSocketService.Start(new IPEndPoint[] { new IPEndPoint(IPAddress.Any, 6694) });
+                    webSocketService.Start(new IPEndPoint[] { new IPEndPoint(IPAddress.Parse(ip), port) });
                 }
                 catch (Exception ex)
                 {
-                    logger.Write(LogType.Error, $"Failed to bind on interface 0.0.0.0:6694");
+                    logger.Write(LogType.Error, $"Failed to bind on interface {ip}:{port}");
                     logger.Write(LogType.Error, $"({ex.GetType().Name}): {ex.Message}");
                     return Result.FailedToBindInterface;
                 }
@@ -137,6 +137,7 @@ namespace MCHost
                     }
 
                     webSocketService.Process();
+                    webSocketService.ProcessDelegates();
 
                     if (now >= nextInstanceProcess)
                     {

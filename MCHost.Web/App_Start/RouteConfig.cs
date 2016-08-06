@@ -17,7 +17,7 @@ namespace MCHost.Web
         {
             routes.IgnoreRoute("{resource}.axd/{*pathInfo}");
 
-            routes.Add(new WebSocketRouteHandler());
+            //routes.Add(new WebSocketRouteHandler());
 
             routes.MapMvcAttributeRoutes();
 
@@ -36,7 +36,7 @@ namespace MCHost.Web
         }
     }
 
-    internal class WebSocketRouteHandler : RouteBase, IRouteHandler
+    /*internal class WebSocketRouteHandler : RouteBase, IRouteHandler
     {
         public IHttpHandler GetHttpHandler(RequestContext requestContext)
         {
@@ -58,5 +58,5 @@ namespace MCHost.Web
         {
             return null;
         }
-    }
+    }*/
 }

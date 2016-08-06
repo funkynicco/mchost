@@ -11,10 +11,14 @@ namespace MCHost.WebSockets
     public partial class WebSocketServer : NetworkServer<WebSocketClient>
     {
         private readonly bool _isBackendServer;
+        private readonly int _mainThreadId;
+
+        public int MainThreadId { get { return _mainThreadId; } }
 
         public WebSocketServer(bool isBackendServer)
         {
             _isBackendServer = isBackendServer;
+            _mainThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
         }
 
         protected override void Dispose(bool disposing)
@@ -29,7 +33,7 @@ namespace MCHost.WebSockets
 
         protected override WebSocketClient AllocateClient(Socket socket)
         {
-            return new WebSocketClient(socket);
+            return new WebSocketClient(this, socket);
         }
 
         protected override void FreeClient(WebSocketClient client)

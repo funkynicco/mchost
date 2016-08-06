@@ -59,7 +59,12 @@ $(function () {
             $.ajax({
                 url: '/api/login',
                 method: 'POST',
-                data: 'email=' + escape(email) + '&password=' + escape(password)
+                dataType: 'json',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    email: email,
+                    password: password
+                })
             }).done(function (data) {
                 console.log(data);
                 if (data.result) {

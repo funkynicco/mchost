@@ -27,6 +27,16 @@ namespace MCHost.Service.Minecraft
             _properties[key] = value;
         }
 
+        public void SetValue(string key, int value)
+        {
+            SetValue(key, value.ToString());
+        }
+
+        public void SetValue(string key, bool value)
+        {
+            SetValue(key, value ? "true" : "false");
+        }
+
         public void Save()
         {
             var sb = new StringBuilder();

@@ -1,0 +1,19 @@
+﻿<div id="ask-terminate-dlg" class="modal fade bs-example-modal-sm" tabindex="-1" role="dialog" aria-labelledby="mySmallModalLabel">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">x</span></button>
+                <h4 class="modal-title">Confirm terminate</h4>
+            </div>
+
+            <div class="modal-body">
+                <p>Are you sure you wish to <span style="font-weight:bold;color:#ff0000">terminate</span> instance <span class="instanceId"></span>?</p>
+                <div class="alert alert-danger">
+                    Only use this option if the server appears to have frozen or irresponsive.
+                </div>
+                <p>The instance will be forcefully terminated.</p>
+                <button id="btnConfirmTerminate" type="button" class="btn btn-danger">Terminate</button>
+            </div>
+        </div>
+    </div>
+</div>

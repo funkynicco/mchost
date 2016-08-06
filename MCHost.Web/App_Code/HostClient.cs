@@ -300,9 +300,9 @@ namespace MCHost.Web
                     var instanceId = buffer.ReadString();
                     var status = (InstanceStatus)buffer.ReadInt32();
                     var packageName = buffer.ReadString();
-                    var configuration = InstanceConfiguration.Deserialize(buffer);
+                    //var configuration = InstanceConfiguration.Deserialize(buffer);
 
-                    list.Add(new InstanceInformation(instanceId, status, packageName, configuration));
+                    //list.Add(new InstanceInformation(instanceId, status, packageName, configuration));
                 }
 
                 return list;

@@ -9,7 +9,8 @@ BEGIN
 		b.[Id],
 		b.[Email],
 		b.[DisplayName],
-		b.[Role]
+		b.[Role],
+		b.[TimeZone]
 	FROM
 		[SessionCache] a
 	INNER JOIN

@@ -16,11 +16,13 @@ namespace MCHost.Web.Controllers
 {
     public class LoginController : BaseApiController
     {
+        private readonly ILogger _logger;
         private readonly IDatabase _database;
 
-        public LoginController(IDatabase database) :
+        public LoginController(ILogger logger, IDatabase database) :
             base(database)
         {
+            _logger = logger;
             _database = database;
         }
 
@@ -106,7 +108,7 @@ namespace MCHost.Web.Controllers
 
             UserCookieCache.AddSession(userCookie.SecureHash, HttpContext.Current.Request.UserHostAddress, user.Id, expireDate);
             _database.AddUserLog(user.Id, "Logged in");
-
+            
             return new { result = true };
         }
     }

@@ -26,9 +26,9 @@ var Service = {
 
     getWebSocketUrl: function () {
 
-        return 'ws://localhost:6694';
+        return 'ws://' + location.hostname + ':6695';
 
-        var baseUrl = location.origin;
+        /*var baseUrl = location.origin;
         if (baseUrl.indexOf("http://") == 0) {
             baseUrl = 'ws' + baseUrl.substr(4);
         } else if (baseUrl.indexOf('https://') == 0) {
@@ -38,10 +38,10 @@ var Service = {
             baseUrl = null;
         }
 
-        return baseUrl;
+        return baseUrl;*/
     },
 
-    initiate: function (initCallback) {
+    initiate: function (initCallback, lostConnectionCallback) {
 
         Service.packetLookupTable = [];
         Service.packetLookupTable['new'] = 'NewInstance';
@@ -57,6 +57,7 @@ var Service = {
         Service.socket = new WebSocket(url);
 
         var isInitialize = true;
+        var sentLostConnection = false;
 
         Service.socket.onopen = function () {
             isInitialize = false;
@@ -67,6 +68,13 @@ var Service = {
         Service.socket.onclose = function (event) {
             console.log('onclose');
             console.log(event);
+
+            if (!isInitialize &&
+                lostConnectionCallback &&
+                !sentLostConnection) {
+                lostConnectionCallback('closed', event);
+                sentLostConnection = true;
+            }
         }
 
         Service.socket.onerror = function (event) {
@@ -76,6 +84,13 @@ var Service = {
             if (isInitialize &&
                 initCallback)
                 initCallback(false, event);
+
+            if (!isInitialize &&
+                lostConnectionCallback &&
+                !sentLostConnection) {
+                lostConnectionCallback('error', event);
+                sentLostConnection = true;
+            }
         }
 
         Service.socket.onmessage = function (event) {
@@ -114,7 +129,7 @@ var Service = {
     },
 
     processPacket: function (header, content) {
-        console.log('Packet \'' + header + '\' => ' + content);
+        //console.log('Packet \'' + header + '\' => ' + content);
 
         var jsonData = JSON.parse(content);
 

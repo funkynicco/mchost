@@ -8,7 +8,8 @@ BEGIN
 		[Id],
 		[Email],
 		[DisplayName],
-		[Role]
+		[Role],
+		[TimeZone]
 	FROM
 		[Users]
 	WHERE

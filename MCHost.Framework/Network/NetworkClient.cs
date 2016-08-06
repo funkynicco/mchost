@@ -279,9 +279,9 @@ namespace MCHost.Framework.Network
             else if (header == Header.InstanceConfiguration)
             {
                 var instanceId = _buffer.ReadString();
-                var configuration = InstanceConfiguration.Deserialize(_buffer);
+                /*var configuration = InstanceConfiguration.Deserialize(_buffer);
 
-                OnInstanceConfiguration(requestId, instanceId, configuration);
+                OnInstanceConfiguration(requestId, instanceId, configuration);*/
             }
             else if (header == Header.List)
             {
@@ -293,9 +293,9 @@ namespace MCHost.Framework.Network
                     var instanceId = _buffer.ReadString();
                     var status = (InstanceStatus)_buffer.ReadInt32();
                     var packageName = _buffer.ReadString();
-                    var configuration = InstanceConfiguration.Deserialize(_buffer);
+                    /*var configuration = InstanceConfiguration.Deserialize(_buffer);
 
-                    instances.Add(new InstanceInformation(instanceId, status, packageName, configuration));
+                    instances.Add(new InstanceInformation(instanceId, status, packageName, configuration));*/
                 }
 
                 OnInstanceList(requestId, instances);

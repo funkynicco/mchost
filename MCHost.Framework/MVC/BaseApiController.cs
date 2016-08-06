@@ -22,7 +22,7 @@ namespace MCHost.Framework.MVC
         private User _user;
 
         protected User CurrentUser { get { return _user; } }
-        protected bool IsAuthenticated { get { return CurrentUser != null; } }
+        protected bool IsAuthenticated { get { return _user != null; } }
 
         public BaseApiController(IDatabase database)
         {

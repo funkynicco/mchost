@@ -95,7 +95,6 @@
     <Compile Include="Database\Structures\User.cs" />
     <Compile Include="DataSerializer.cs" />
     <Compile Include="Extensions.cs" />
-    <Compile Include="ILogger.cs" />
     <Compile Include="Json\JsonArray.cs" />
     <Compile Include="Json\JsonBase.cs" />
     <Compile Include="Json\JsonBoolean.cs" />
@@ -133,6 +132,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MCHost.Interfaces\MCHost.Interfaces.csproj">
+      <Project>{86716bdb-c5c4-4d6d-a9fd-1bb5481a3e3e}</Project>
+      <Name>MCHost.Interfaces</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

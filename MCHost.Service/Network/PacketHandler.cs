@@ -13,7 +13,7 @@ namespace MCHost.Service.Network
 {
     public partial class Server
     {
-        [Packet(Header.List)]
+        /*[Packet(Header.List)]
         void OnListInstances(ServerClient client, int requestId)
         {
             var packet = new Packet(Header.List, requestId);
@@ -140,6 +140,6 @@ namespace MCHost.Service.Network
             packet.Write(instanceId);
             configuration.Serialize(packet);
             client.Send(packet);
-        }
+        }*/
     }
 }

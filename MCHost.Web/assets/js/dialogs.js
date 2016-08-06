@@ -39,3 +39,39 @@ function startNewInstanceDialog(cb) {
         }
     })
 }
+
+function askShutdownDialog(instanceId, cb) {
+    showDialog({
+        name: 'ask-shutdown-dlg',
+        init: function (data, element) {
+            element.find('#btnConfirmShutdown').click(function () {
+                element.modal('hide');
+                if (cb) {
+                    cb();
+                }
+                return false;
+            })
+        },
+        configure: function (data, element) {
+            element.find('.instanceId').html(instanceId);
+        }
+    })
+}
+
+function askTerminateDialog(instanceId, cb) {
+    showDialog({
+        name: 'ask-terminate-dlg',
+        init: function (data, element) {
+            element.find('#btnConfirmTerminate').click(function () {
+                element.modal('hide');
+                if (cb) {
+                    cb();
+                }
+                return false;
+            })
+        },
+        configure: function (data, element) {
+            element.find('.instanceId').html(instanceId);
+        }
+    })
+}

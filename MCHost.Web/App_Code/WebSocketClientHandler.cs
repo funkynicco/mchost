@@ -130,11 +130,13 @@ namespace MCHost.Web
         private readonly object _lock = new object();
         private readonly IHostClient _hostClient;
         private readonly ILogger _logger;
+        private readonly ISettings _settings;
 
-        public WebSocketClientHandler(IHostClient hostClient, ILogger logger)
+        public WebSocketClientHandler(IHostClient hostClient, ILogger logger, ISettings settings)
         {
             _hostClient = hostClient;
             _logger = logger;
+            _settings = settings;
         }
 
         private int AllocateId()
@@ -238,7 +240,7 @@ namespace MCHost.Web
                 if (header == "new")
                 {
                     var packageName = data.GetMember<JsonString>("packageName").Value;
-                    var instanceConfiguration = InstanceConfiguration.Default;
+                    var instanceConfiguration = InstanceConfiguration.CreateDefault(_settings);
 
                     var instanceId = _hostClient.CreateInstance(
                         packageName,

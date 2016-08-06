@@ -121,6 +121,8 @@
     <Content Include="assets\css\instance-manager.css" />
     <Content Include="assets\css\simplified.css" />
     <Content Include="assets\css\theme.css" />
+    <Content Include="assets\dialogs\ask-shutdown-dlg.html" />
+    <Content Include="assets\dialogs\ask-terminate-dlg.html" />
     <Content Include="assets\dialogs\start-new-instance-dlg.html" />
     <Content Include="assets\framework\css\bootstrap-theme.css" />
     <Content Include="assets\framework\css\bootstrap-theme.min.css" />
@@ -152,6 +154,8 @@
     <Content Include="assets\framework\fonts\glyphicons-halflings-regular.ttf" />
     <Content Include="assets\framework\fonts\glyphicons-halflings-regular.woff" />
     <Content Include="assets\framework\fonts\glyphicons-halflings-regular.woff2" />
+    <Content Include="assets\framework\fonts\digital-7-mono.eot" />
+    <Content Include="assets\framework\fonts\digital-7-mono.ttf" />
     <None Include="Properties\PublishProfiles\Publish.pubxml" />
     <Content Include="Web.config" />
   </ItemGroup>
@@ -202,6 +206,10 @@
     <ProjectReference Include="..\MCHost.Framework\MCHost.Framework.csproj">
       <Project>{483ef51a-7608-448b-9d8f-60c707a2bbd5}</Project>
       <Name>MCHost.Framework</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\MCHost.Interfaces\MCHost.Interfaces.csproj">
+      <Project>{86716bdb-c5c4-4d6d-a9fd-1bb5481a3e3e}</Project>
+      <Name>MCHost.Interfaces</Name>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup>

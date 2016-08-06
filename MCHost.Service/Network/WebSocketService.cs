@@ -1,4 +1,6 @@
-﻿using MCHost.Framework;
+﻿//#define DISABLE_AUTHORIZE // (only in debug) will use the first account in database as authorization
+
+using MCHost.Framework;
 using MCHost.Framework.Json;
 using MCHost.Framework.Security;
 using MCHost.Service.Minecraft;
@@ -7,6 +9,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Text;
@@ -68,14 +71,16 @@ namespace MCHost.Service.Network
 
         private readonly ILogger _logger;
         private readonly IDatabase _database;
+        private readonly IConfiguration _configuration;
         private IInstanceManager _instanceManager;
         private readonly Dictionary<string, WebSocketPacketMethod> _packetMethods = new Dictionary<string, WebSocketPacketMethod>();
 
-        public WebSocketService(ILogger logger, IDatabase database, bool isBackendServer) :
-            base(isBackendServer)
+        public WebSocketService(ILogger logger, IDatabase database, IConfiguration configuration) :
+            base(configuration["IsBackendServer"].ToLower() == "true")
         {
             _logger = logger;
             _database = database;
+            _configuration = configuration;
 
             foreach (var method in GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
             {
@@ -93,20 +98,29 @@ namespace MCHost.Service.Network
         public void SetInstanceManager(IInstanceManager instanceManager)
         {
             _instanceManager = instanceManager;
+            instanceManager.AddEventListener(this);
         }
 
         protected override bool AuthorizeRequest(WebSocketClient client, HttpHeader header)
         {
+#if DEBUG && DISABLE_AUTHORIZE
+            var cookie = "<ignored>";
+#else
             var cookie = header.GetCookie(UserCookie.CookieName);
             if (cookie == null)
             {
                 _logger.Write(LogType.Warning, "Cookie not found in request");
                 return false;
             }
+#endif
 
             _logger.Write(LogType.Notice, "Authorizing WebSocket session ...");
 
+#if DEBUG && DISABLE_AUTHORIZE
+            var user = _database.GetUsers().FirstOrDefault();
+#else
             var user = _database.ResumeSession(cookie);
+#endif
             if (user == null)
             {
                 _logger.Write(LogType.Warning, "ResumeSession failed, key: " + cookie);
@@ -117,6 +131,7 @@ namespace MCHost.Service.Network
             _logger.Write(LogType.Warning, $"[WebSocketService] Authorized {user.DisplayName} from {client.IP}");
             return true;
         }
+
         protected override void OnClientConnected(WebSocketClient client)
         {
             _logger.Write(LogType.Notice, "OnClientConnected: " + client.IP);
@@ -126,6 +141,8 @@ namespace MCHost.Service.Network
         protected override void OnWebSocketOpen(WebSocketClient client)
         {
             _logger.Write(LogType.Notice, "OnWebSocketOpen: " + client.IP);
+
+            SendInstanceList(client);
         }
 
         protected override void OnWebSocketClosed(WebSocketClient client)
@@ -206,9 +223,24 @@ namespace MCHost.Service.Network
                     _logger.Write(LogType.Warning, $"{client.IP} - (JsonTypeUnexpectedException) " + ex.InnerException.Message);
                     return;
                 }
+                else if (ex.InnerException is SocketException)
+                {
+                    client.Disconnect();
+                    _logger.Write(LogType.Warning, "(SocketException) " + ex.InnerException.Message);
+                    return;
+                }
 
                 _logger.Write(LogType.Warning, $"({ex.InnerException.GetType().Name}) {ex.InnerException.Message}\n{ex.InnerException.StackTrace}");
                 ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
+            }
+        }
+
+        public void Broadcast(string header, object data)
+        {
+            var str_data = header + " " + Utilities.EscapeWebSocketContent(JsonConvert.SerializeObject(data)) + "|";
+            foreach (var client in Clients)
+            {
+                client.SendWebSocketText(str_data);
             }
         }
     }

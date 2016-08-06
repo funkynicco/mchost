@@ -5,17 +5,34 @@
 
 <h2>Instance Manager</h2>
 
+<div id="lost-connection-div" class="alert alert-danger">
+    The connection to the service was lost. <a href="/" class="alert-link">Reload the page</a> to reconnect.
+</div>
+
 <div id="main-instance-manager">
     <div id="instance-list-container">
         <ul id="instance-list">
-            <li id="instance-list-template" data-id="{instance-id}">
+            <li id="instance-list-template" data-id="{instance-id}" class="instance-item">
                 <div class="sect-1">
                     <header>{package-name}</header>
                     <content>{instance-id}</content>
                 </div>
                 <div class="sect-divider">&nbsp;</div>
-                <div class="sect-2">hello</div>
-                <div class="sect-3">{status}</div>
+                <div class="sect-2">{address}</div>
+                <div class="sect-3">{status}<br />
+                    <div class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+                            <span class="glyphicon glyphicon-off"></span>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a href="#" onclick="return askShutdown('{instance-id}')"><span class="glyphicon glyphicon-off"></span> Shutdown</a></li>
+                            <li><a href="#" onclick="return askTerminate('{instance-id}')"><span class="glyphicon glyphicon-warning-sign"></span> Terminate</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </li>
+            <li id="no-instance-html">
+                <div class="alert alert-warning">There are currently no running instances.</div>
             </li>
         </ul>
         <a href="#" id="btn-new-instance" class="btn btn-primary">Start new instance</a>
@@ -43,63 +60,4 @@
     <script src="~/assets/js/dialogs.js"></script>
     <script src="~/assets/js/instance-list.js"></script>
     <script src="~/assets/js/main.js"></script>
-
-    <script type="text/javascript">
-        var lastLogId = 0;
-
-        function selectInstance(id) {
-            console.log('Select instance => ' + id);
-
-            return false;
-        }
-
-        function updateInstanceList() {
-            $.get('/home/list-instances', function (data) {
-                if (data.result) {
-                    console.log(data);
-                    if (data.instances.length > 0) {
-                        var html = '';
-
-                        for (var i = 0; i < data.instances.length; ++i) {
-                            var instance = data.instances[i];
-
-                            var buttonHtml =
-                                '<a href="#" class="tiny-btn btn-warning" onclick="return askShutdownInstance(\'' + instance.Id + '\')">Shutdown</a> ' +
-                                '<a href="#" class="tiny-btn btn-danger" onclick="return askTerminateInstance(\'' + instance.Id + '\')">Terminate</a>';
-
-                            html +=
-                                '<tr><td><a href="#" onclick="return selectInstance(\'' + instance.Id + '\')">' +
-                                instance.Id +
-                                '</a></td><td>' +
-                                instance.PackageName +
-                                '</td><td>' +
-                                buildStatusTag(instance.Status) +
-                                '</td><td>'+buttonHtml+'</td></tr>'
-                            ;
-                        }
-
-                        $('#instance-table tbody').html(html);
-                    } else {
-                        $('#instance-table tbody').html('<tr><td colspan="4">There are currently no instances running. <a href="#" onclick="return startNewInstance()">Start new instance</a></td></tr>');
-                    }
-                } else {
-                    console.log('Error: ' + data.error);
-                }
-
-                setTimeout(updateInstanceList, 2000);
-            });
-        }
-
-        function startNewInstance() {
-            $.get('/home/start-instance', function (data) {
-                if (data.result) {
-                    console.log('Started new instance. Instance id: ' + data.instanceId);
-                } else {
-                    console.log('Failed to start instance.\n' + data.error);
-                }
-            });
-
-            return false;
-        }
-    </script>
 }
